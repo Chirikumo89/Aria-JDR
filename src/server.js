@@ -1,0 +1,809 @@
+import dotenv from 'dotenv';
+import express from "express";
+import cors from "cors";
+import { Server } from "socket.io";
+import fs from 'fs';
+import path from 'path';
+
+// Charger les variables d'environnement
+dotenv.config();
+
+import { prisma } from "./lib/prisma.js";
+
+const app = express();
+const PORT = 4000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Servir les fichiers statiques du dossier cartes
+app.use('/cartes', express.static('public/cartes'));
+
+// Routes API pour l'authentification
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { username } = req.body;
+    
+    if (!username || !username.trim()) {
+      return res.status(400).json({ error: "Le pseudo est requis" });
+    }
+
+    const cleanUsername = username.trim();
+    
+    // Chercher l'utilisateur existant
+    let user = await prisma.user.findUnique({
+      where: { username: cleanUsername }
+    });
+
+    // Si l'utilisateur n'existe pas, le créer
+    if (!user) {
+      user = await prisma.user.create({
+        data: { username: cleanUsername }
+      });
+      console.log(`[API] Nouvel utilisateur créé: ${cleanUsername}`);
+    } else {
+      console.log(`[API] Utilisateur connecté: ${cleanUsername}`);
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Erreur lors de la connexion:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.get("/api/auth/me", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "ID utilisateur requis" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Erreur lors de la récupération de l'utilisateur:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.put("/api/users/:id/role", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    
+    if (!role || !['player', 'mj'].includes(role)) {
+      return res.status(400).json({ error: "Rôle invalide" });
+    }
+
+    // Récupérer l'utilisateur pour vérifier son pseudo
+    const user = await prisma.user.findUnique({
+      where: { id }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+
+    // Seul l'utilisateur avec le pseudo "MJ" peut avoir le rôle MJ
+    if (role === 'mj' && user.username.toLowerCase() !== 'mj') {
+      return res.status(403).json({ 
+        error: "Seul l'utilisateur avec le pseudo 'MJ' peut avoir le rôle de Maître de Jeu" 
+      });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { role }
+    });
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du rôle:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Routes API
+app.get("/api/games", async (req, res) => {
+  try {
+    console.log("[API] Récupération des parties...");
+    console.log("[API] DATABASE_URL:", process.env.DATABASE_URL);
+    const games = await prisma.game.findMany({
+      include: {
+        characters: true,
+        _count: {
+          select: {
+            diceRolls: true,
+            gameSessions: true
+          }
+        }
+      }
+    });
+    console.log("[API] Parties récupérées:", games.length);
+    res.json(games);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des parties:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+app.post("/api/games", async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const game = await prisma.game.create({
+      data: { name, description }
+    });
+    res.json(game);
+  } catch (error) {
+    console.error("Erreur lors de la création de la partie:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.delete("/api/games/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.query; // Récupérer l'ID de l'utilisateur depuis la query
+    
+    if (!userId) {
+      return res.status(400).json({ error: "ID utilisateur requis" });
+    }
+
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+
+    if (user.role !== 'mj') {
+      return res.status(403).json({ 
+        error: "Seuls les Maîtres de Jeu peuvent supprimer des parties" 
+      });
+    }
+    
+    // Supprimer la partie (cascade supprimera les personnages et lancers de dés)
+    await prisma.game.delete({
+      where: { id }
+    });
+    
+    res.json({ message: "Partie supprimée avec succès" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression de la partie:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.get("/api/games/:id/characters", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const characters = await prisma.character.findMany({
+      where: { gameId: id },
+      include: {
+        _count: {
+          select: { diceRolls: true }
+        },
+        characterCards: {
+          include: {
+            card: true
+          }
+        }
+      }
+    });
+    
+    // Parser les données JSON pour possessions
+    const processedCharacters = characters.map(character => {
+      let possessions = [];
+      let notes = [];
+      
+      try {
+        possessions = character.possessions ? JSON.parse(character.possessions) : [];
+      } catch (e) {
+        console.warn('Erreur parsing possessions pour personnage', character.id, ':', e.message);
+        console.warn('Valeur possessions:', character.possessions);
+        possessions = [];
+      }
+      
+      try {
+        notes = character.notes ? JSON.parse(character.notes) : [];
+      } catch (e) {
+        console.warn('Erreur parsing notes pour personnage', character.id, ':', e.message);
+        console.warn('Valeur notes:', character.notes);
+        notes = [];
+      }
+      
+      return {
+        ...character,
+        possessions,
+        notes
+      };
+    });
+    
+    res.json(processedCharacters);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des personnages:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post("/api/games/:id/characters", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const characterData = req.body;
+    const userId = req.headers['user-id']; // Récupérer l'ID utilisateur depuis les headers
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur existe
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user) {
+      return res.status(401).json({ error: "Utilisateur non trouvé" });
+    }
+    
+    // Vérifier que la partie existe
+    const game = await prisma.game.findUnique({
+      where: { id }
+    });
+    
+    if (!game) {
+      return res.status(404).json({ error: "Partie non trouvée" });
+    }
+    
+    // Vérifier si l'utilisateur a déjà un personnage dans cette partie
+    const existingCharacter = await prisma.character.findFirst({
+      where: {
+        gameId: id,
+        userId: userId
+      }
+    });
+    
+    if (existingCharacter) {
+      return res.status(400).json({ error: "Vous ne pouvez créer qu'un seul personnage par partie" });
+    }
+    
+    // Convertir les tableaux en JSON pour la sauvegarde
+    const processedData = {
+      ...characterData,
+      playerName: user.username, // Utiliser le nom d'utilisateur automatiquement
+      possessions: Array.isArray(characterData.possessions) 
+        ? JSON.stringify(characterData.possessions) 
+        : characterData.possessions,
+      notes: Array.isArray(characterData.notes) 
+        ? JSON.stringify(characterData.notes) 
+        : characterData.notes
+    };
+    
+    const character = await prisma.character.create({
+      data: {
+        ...processedData,
+        gameId: id,
+        userId: userId // Assigner l'utilisateur au personnage
+      }
+    });
+    
+    // Parser les données JSON pour la réponse
+    const processedCharacter = {
+      ...character,
+      possessions: character.possessions ? JSON.parse(character.possessions) : [],
+      notes: character.notes ? JSON.parse(character.notes) : []
+    };
+    
+    res.json(processedCharacter);
+  } catch (error) {
+    console.error("Erreur lors de la création du personnage:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.get("/api/characters/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const character = await prisma.character.findUnique({
+      where: { id },
+      include: {
+        game: true,
+        user: true,
+        characterCards: {
+          include: {
+            card: true
+          }
+        }
+      }
+    });
+    
+    if (!character) {
+      return res.status(404).json({ error: "Personnage non trouvé" });
+    }
+    
+    // Parser les données JSON pour possessions
+    const processedCharacter = {
+      ...character,
+      possessions: character.possessions ? JSON.parse(character.possessions) : [],
+      notes: character.notes ? JSON.parse(character.notes) : []
+    };
+    
+    res.json(processedCharacter);
+  } catch (error) {
+    console.error("Erreur lors de la récupération du personnage:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.put("/api/characters/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const characterData = req.body;
+    
+    // Convertir les tableaux en JSON pour la sauvegarde
+    const processedData = {
+      ...characterData,
+      possessions: Array.isArray(characterData.possessions) 
+        ? JSON.stringify(characterData.possessions) 
+        : characterData.possessions,
+      notes: Array.isArray(characterData.notes) 
+        ? JSON.stringify(characterData.notes) 
+        : characterData.notes
+    };
+    
+    console.log("Données reçues pour mise à jour:", processedData);
+    
+    const character = await prisma.character.update({
+      where: { id },
+      data: processedData
+    });
+    res.json(character);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du personnage:", error);
+    console.error("Détails de l'erreur:", error.message);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+app.delete("/api/characters/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Récupérer le personnage pour vérifier les permissions
+    const character = await prisma.character.findUnique({
+      where: { id },
+      include: { user: true }
+    });
+    
+    if (!character) {
+      return res.status(404).json({ error: "Personnage non trouvé" });
+    }
+    
+    // Vérifier les permissions
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const isMJ = user?.role === 'mj';
+    const isOwner = character.userId === userId;
+    
+    if (!isMJ && !isOwner) {
+      return res.status(403).json({ error: "Vous n'avez pas le droit de supprimer ce personnage" });
+    }
+    
+    // Supprimer le personnage
+    await prisma.character.delete({
+      where: { id }
+    });
+    
+    res.json({ message: "Personnage supprimé avec succès" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression du personnage:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.get("/api/games/:id/dice-rolls", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 50 } = req.query;
+    const diceRolls = await prisma.diceRoll.findMany({
+      where: { gameId: id },
+      include: {
+        character: {
+          select: { name: true, playerName: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(limit)
+    });
+    res.json(diceRolls);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des lancers de dés:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Routes pour les cartes
+app.get("/api/games/:id/cards", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cards = await prisma.card.findMany({
+      where: { gameId: id },
+      include: {
+        characterCards: {
+          include: {
+            character: {
+              select: { id: true, name: true, playerName: true }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(cards);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des cartes:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post("/api/games/:id/cards", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cardData = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent créer des cartes" });
+    }
+    
+    // Vérifier que la partie existe
+    const game = await prisma.game.findUnique({
+      where: { id }
+    });
+    
+    if (!game) {
+      return res.status(404).json({ error: "Partie non trouvée" });
+    }
+    
+    const card = await prisma.card.create({
+      data: {
+        ...cardData,
+        gameId: id
+      },
+      include: {
+        characterCards: {
+          include: {
+            character: {
+              select: { id: true, name: true, playerName: true }
+            }
+          }
+        }
+      }
+    });
+    
+    res.json(card);
+  } catch (error) {
+    console.error("Erreur lors de la création de la carte:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.put("/api/cards/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cardData = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent modifier des cartes" });
+    }
+    
+    const card = await prisma.card.update({
+      where: { id },
+      data: cardData,
+      include: {
+        characterCards: {
+          include: {
+            character: {
+              select: { id: true, name: true, playerName: true }
+            }
+          }
+        }
+      }
+    });
+    
+    res.json(card);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de la carte:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.delete("/api/cards/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent supprimer des cartes" });
+    }
+    
+    await prisma.card.delete({
+      where: { id }
+    });
+    
+    res.json({ message: "Carte supprimée avec succès" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression de la carte:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post("/api/cards/:id/assign", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { characterId, notes } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent attribuer des cartes" });
+    }
+    
+    // Vérifier que la carte existe
+    const card = await prisma.card.findUnique({
+      where: { id }
+    });
+    
+    if (!card) {
+      return res.status(404).json({ error: "Carte non trouvée" });
+    }
+    
+    // Vérifier que le personnage existe
+    const character = await prisma.character.findUnique({
+      where: { id: characterId }
+    });
+    
+    if (!character) {
+      return res.status(404).json({ error: "Personnage non trouvé" });
+    }
+    
+    // Vérifier que le personnage et la carte sont dans la même partie
+    if (character.gameId !== card.gameId) {
+      return res.status(400).json({ error: "Le personnage et la carte doivent être dans la même partie" });
+    }
+    
+    // Créer l'attribution
+    const characterCard = await prisma.characterCard.create({
+      data: {
+        cardId: id,
+        characterId: characterId,
+        notes: notes || ''
+      },
+      include: {
+        card: true,
+        character: {
+          select: { id: true, name: true, playerName: true }
+        }
+      }
+    });
+    
+    res.json(characterCard);
+  } catch (error) {
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: "Ce personnage possède déjà cette carte" });
+    }
+    console.error("Erreur lors de l'attribution de la carte:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.delete("/api/cards/:id/remove", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { characterId } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent retirer des cartes" });
+    }
+    
+    // Supprimer l'attribution
+    await prisma.characterCard.deleteMany({
+      where: {
+        cardId: id,
+        characterId: characterId
+      }
+    });
+    
+    res.json({ message: "Carte retirée avec succès" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression de la carte du personnage:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Route pour scanner les cartes disponibles
+app.get("/api/cards/available", async (req, res) => {
+  try {
+    const cartesDir = path.join(process.cwd(), 'public', 'cartes');
+    
+    // Vérifier si le dossier existe
+    if (!fs.existsSync(cartesDir)) {
+      return res.json([]);
+    }
+
+    // Lire les fichiers du dossier
+    const files = fs.readdirSync(cartesDir);
+    const pdfFiles = files.filter(file => file.toLowerCase().endsWith('.pdf'));
+    
+    // Générer les cartes à partir des fichiers PDF
+    const availableCards = pdfFiles.map(file => {
+      const nameWithoutExt = file.replace(/\.pdf$/i, '');
+      const words = nameWithoutExt.split('-');
+      const capitalizedWords = words.map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      );
+      const cardName = capitalizedWords.join(' ');
+      
+      return {
+        name: cardName,
+        description: `Une carte géographique détaillée : ${cardName}`,
+        type: "Carte du monde",
+        rarity: "Commune",
+        cost: 0,
+        image: `/cartes/${file}`,
+        filename: file
+      };
+    });
+
+    res.json(availableCards);
+  } catch (error) {
+    console.error("Erreur lors du scan des cartes:", error);
+    res.status(500).json({ error: "Erreur lors du scan des cartes" });
+  }
+});
+
+const server = app.listen(PORT, () => {
+  console.log(`[Server] API server running on port ${PORT}`);
+});
+
+const io = new Server(server, { cors: { origin: "*" } });
+
+io.on("connection", (socket) => {
+  console.log("🧑 Un joueur est connecté :", socket.id);
+
+  // Quand un joueur lance les dés
+  socket.on("dice:roll", async (data) => {
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(`[Server] 🎲 ÉVÉNEMENT dice:roll REÇU`);
+    console.log(`[Server] 📦 Données complètes reçues:`, JSON.stringify(data, null, 2));
+    console.log(`[Server] 🆔 Session ID reçu:`, data.sessionId);
+    console.log(`[Server] 👤 Joueur:`, data.player);
+    
+    const { notation, type, player, sessionId, gameId, characterId, userId } = data || {};
+    
+    if ((!notation && !type) || !player) {
+      console.error("[Server] ❌ Données manquantes dans dice:roll:", data);
+      return;
+    }
+    
+    // Préparer les données à relayer (SANS générer de résultat)
+    const dataToRelay = { 
+      notation: notation || type, 
+      type: type,
+      player,
+      sessionId,  // ← IMPORTANT : Relayer le sessionId
+      gameId,
+      characterId,
+      userId
+    };
+    
+    console.log(`[Server] 📤 Données relayées à TOUS les clients:`, JSON.stringify(dataToRelay, null, 2));
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    
+    io.emit("dice:rolled", dataToRelay);
+  });
+
+  // Quand un joueur partage son résultat de dé
+  socket.on("dice:result", async (data) => {
+    console.log(`[Server] 📊 dice:result reçu de ${data.player}:`, data.result);
+    console.log(`[Server] 📦 Données complètes reçues:`, JSON.stringify(data, null, 2));
+    const { result, details, player, notation, type, sessionId } = data || {};
+    
+    if (result === null || result === undefined || !player) {
+      console.error("[Server] Données manquantes dans dice:result:", data);
+      return;
+    }
+    
+    // Sauvegarder dans la base de données si nécessaire
+    // TODO: Récupérer gameId, characterId, userId du contexte si nécessaire
+    
+    // Relayer le résultat à tous les autres joueurs avec toutes les infos
+    console.log(`[Server] 📤 Partage du résultat de ${player} à tous les clients:`, result);
+    console.log(`[Server] 📊 Type de dé: ${notation || type || 'inconnu'}`);
+    io.emit("dice:result", { 
+      result, 
+      details: details || [],
+      player,
+      notation,  // Ajouter la notation
+      type,      // Ajouter le type
+      sessionId  // Ajouter le sessionId
+    });
+  });
+
+  // Relayer les frames du canvas pour le streaming vidéo
+  socket.on("canvas:frame", (data) => {
+    // Relayer le frame à tous les autres clients (broadcast)
+    socket.broadcast.emit("canvas:frame", data);
+  });
+
+  // Relayer la fin du stream
+  socket.on("canvas:stream-end", (data) => {
+    console.log(`[Server] 🛑 Fin du stream de ${data.player}`);
+    socket.broadcast.emit("canvas:stream-end", data);
+  });
+
+  socket.on("disconnect", () => console.log("[Server] Un joueur est parti"));
+});
+
+console.log("[Server] Socket.IO server running on port 4000");

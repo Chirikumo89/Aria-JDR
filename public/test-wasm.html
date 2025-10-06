@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test WASM Assets</title>
+</head>
+<body>
+    <h1>Test des assets WASM</h1>
+    
+    <div id="test-results"></div>
+    
+    <script>
+        async function testAssets() {
+            const results = document.getElementById('test-results');
+            
+            // Test 1: Vérifier l'accès au fichier WASM
+            try {
+                const response = await fetch('/assets/dice-box/ammo/ammo.wasm.wasm');
+                if (response.ok) {
+                    results.innerHTML += '<p>✅ Fichier WASM accessible</p>';
+                    const arrayBuffer = await response.arrayBuffer();
+                    results.innerHTML += `<p>✅ Fichier WASM chargé, taille: ${arrayBuffer.byteLength} bytes</p>`;
+                } else {
+                    results.innerHTML += `<p>❌ Erreur WASM: ${response.status} ${response.statusText}</p>`;
+                }
+            } catch (error) {
+                results.innerHTML += `<p>❌ Erreur WASM: ${error.message}</p>`;
+            }
+            
+            // Test 2: Vérifier le thème par défaut
+            try {
+                const response = await fetch('/assets/dice-box/themes/default/default.json');
+                if (response.ok) {
+                    results.innerHTML += '<p>✅ Thème par défaut accessible</p>';
+                    const theme = await response.json();
+                    results.innerHTML += `<p>✅ Thème chargé: ${theme.name || 'Sans nom'}</p>`;
+                } else {
+                    results.innerHTML += `<p>❌ Erreur thème: ${response.status} ${response.statusText}</p>`;
+                }
+            } catch (error) {
+                results.innerHTML += `<p>❌ Erreur thème: ${error.message}</p>`;
+            }
+            
+            // Test 3: Vérifier les images du thème
+            const images = ['diffuse-dark.png', 'diffuse-light.png', 'normal.png', 'specular.jpg'];
+            for (const img of images) {
+                try {
+                    const response = await fetch(`/assets/dice-box/themes/default/${img}`);
+                    if (response.ok) {
+                        results.innerHTML += `<p>✅ Image ${img} accessible</p>`;
+                    } else {
+                        results.innerHTML += `<p>❌ Erreur image ${img}: ${response.status}</p>`;
+                    }
+                } catch (error) {
+                    results.innerHTML += `<p>❌ Erreur image ${img}: ${error.message}</p>`;
+                }
+            }
+        }
+        
+        testAssets();
+    </script>
+</body>
+</html>

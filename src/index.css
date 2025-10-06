@@ -1,0 +1,613 @@
+@import "tailwindcss";
+
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Variables CSS pour le dark mode */
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #262626;
+  --bg-card: #1e1e1e;
+  --bg-hover: #2a2a2a;
+  
+  --text-primary: #ffffff;
+  --text-secondary: #a3a3a3;
+  --text-muted: #737373;
+  
+  --border-primary: #404040;
+  --border-secondary: #525252;
+  --border-focus: #3b82f6;
+  
+  --accent-primary: #3b82f6;
+  --accent-secondary: #1d4ed8;
+  --accent-success: #10b981;
+  --accent-warning: #f59e0b;
+  --accent-error: #ef4444;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light mode variables */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    --bg-card: #ffffff;
+    --bg-hover: #f1f5f9;
+    
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    
+    --border-primary: #e2e8f0;
+    --border-secondary: #cbd5e1;
+    --border-focus: #3b82f6;
+    
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+}
+
+a {
+  font-weight: 500;
+  color: var(--accent-primary);
+  text-decoration: inherit;
+  transition: color 0.2s ease;
+}
+a:hover {
+  color: var(--accent-secondary);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+/* Styles pour les formulaires */
+input, textarea, select {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* Styles pour les boutons */
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-secondary);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Classes utilitaires pour les couleurs */
+.bg-card {
+  background-color: var(--bg-card);
+}
+
+.bg-secondary {
+  background-color: var(--bg-secondary);
+}
+
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.border-primary {
+  border-color: var(--border-primary);
+}
+
+.shadow-card {
+  box-shadow: var(--shadow-md);
+}
+
+/* Styles pour la fiche de personnage Aria */
+.character-sheet {
+  background: linear-gradient(135deg, #f4f1e8 0%, #e8dcc0 50%, #d4c4a8 100%);
+  background-image: 
+    radial-gradient(circle at 20% 20%, rgba(139, 69, 19, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(160, 82, 45, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(101, 67, 33, 0.05) 0%, transparent 50%);
+  border: 3px solid #8b4513;
+  box-shadow: 
+    0 0 20px rgba(139, 69, 19, 0.3),
+    inset 0 0 20px rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.character-sheet::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(139, 69, 19, 0.03) 2px,
+      rgba(139, 69, 19, 0.03) 4px
+    );
+  pointer-events: none;
+}
+
+.bg-parchment {
+  background: linear-gradient(135deg, #f4f1e8 0%, #e8dcc0 50%, #d4c4a8 100%);
+}
+
+.text-ink {
+  color: #2c1810;
+}
+
+.crown-icon {
+  filter: drop-shadow(2px 2px 4px rgba(139, 69, 19, 0.3));
+}
+
+/* Styles pour les inputs de la fiche */
+.character-sheet input,
+.character-sheet textarea {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-bottom: 2px solid #8b4513;
+  color: #2c1810;
+  font-family: 'Times New Roman', serif;
+  transition: all 0.2s ease;
+}
+
+.character-sheet input:focus,
+.character-sheet textarea:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-bottom-color: #a0522d;
+  box-shadow: 0 2px 4px rgba(139, 69, 19, 0.2);
+}
+
+.character-sheet input:disabled,
+.character-sheet textarea:disabled {
+  background: transparent;
+  cursor: default;
+}
+
+.character-sheet input::placeholder,
+.character-sheet textarea::placeholder {
+  color: rgba(44, 24, 16, 0.5);
+  font-style: italic;
+}
+
+/* Styles pour les boutons de la fiche */
+.character-sheet button {
+  background: linear-gradient(135deg, #d2691e 0%, #cd853f 100%);
+  border: 2px solid #8b4513;
+  color: #f4f1e8;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 4px 8px rgba(139, 69, 19, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.character-sheet button:hover {
+  background: linear-gradient(135deg, #cd853f 0%, #d2691e 100%);
+  box-shadow: 
+    0 6px 12px rgba(139, 69, 19, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Styles pour les icônes */
+.character-sheet .crown-icon {
+  font-size: 2rem;
+  text-shadow: 2px 2px 4px rgba(139, 69, 19, 0.5);
+}
+
+/* Effet de vieillissement */
+.character-sheet::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 10% 10%, rgba(139, 69, 19, 0.1) 0%, transparent 20%),
+    radial-gradient(circle at 90% 90%, rgba(160, 82, 45, 0.1) 0%, transparent 20%),
+    radial-gradient(circle at 50% 50%, rgba(101, 67, 33, 0.05) 0%, transparent 30%);
+  pointer-events: none;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(-20px); }
+  10% { opacity: 1; transform: translateY(0); }
+  90% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+
+@keyframes diceRoll {
+  0% { transform: scale(0.8) rotate(0deg); opacity: 0; }
+  50% { transform: scale(1.1) rotate(180deg); opacity: 1; }
+  100% { transform: scale(1) rotate(360deg); opacity: 1; }
+}
+
+@keyframes diceBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(79, 70, 229, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(79, 70, 229, 0.6); }
+}
+
+.animate-fadeInOut {
+  animation: fadeInOut 3s ease-in-out forwards;
+}
+
+.animate-diceRoll {
+  animation: diceRoll 2.5s ease-in-out forwards;
+}
+
+.animate-diceBounce {
+  animation: diceBounce 0.6s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Styles pour les dés 2D */
+.dice-2d {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(145deg, #ffffff, #f0f0f0);
+  border: 3px solid #333;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.dice-2d.rolling {
+  animation: diceRoll 0.1s infinite linear;
+  transform: scale(1.1);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+}
+
+.dice-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.dice-number {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.dice-2d.d6 .dice-number {
+  font-size: 3rem;
+}
+
+.dice-2d.d10 .dice-number {
+  font-size: 2rem;
+}
+
+/* Container pour les dés */
+.dice-container {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Container pour D100 */
+.dice-100-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  position: relative;
+  width: 300px;
+  height: 250px;
+  overflow: hidden;
+}
+
+.dice-group {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: center;
+}
+
+.dice-100-container .dice-2d {
+  margin: 0;
+}
+
+.dice-label {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 5px;
+  text-align: center;
+}
+
+.dice-total {
+  background: linear-gradient(145deg, #4f46e5, #7c3aed);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: bold;
+  box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+}
+
+.total-label {
+  font-size: 0.9rem;
+  margin-right: 8px;
+}
+
+.total-value {
+  font-size: 1.5rem;
+}
+
+/* Animation de roulement */
+@keyframes diceRoll {
+  0% { transform: rotate(0deg) scale(1.1); }
+  25% { transform: rotate(90deg) scale(1.2); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  75% { transform: rotate(270deg) scale(1.2); }
+  100% { transform: rotate(360deg) scale(1.1); }
+}
+
+/* Animation de rebond */
+@keyframes diceBounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.05); }
+}
+
+/* Animations pour les notifications */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.dice-2d.rolling {
+  animation: diceRoll 0.1s infinite linear, diceBounce 0.6s infinite ease-in-out;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+  filter: blur(0.5px);
+}
+
+/* Effet de traînée pendant le roulement */
+.dice-2d.rolling::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120%;
+  height: 120%;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  transform: translate(-50%, -50%);
+  animation: trail 0.3s infinite linear;
+  pointer-events: none;
+}
+
+@keyframes trail {
+  0% { transform: translate(-50%, -50%) rotate(0deg); opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) rotate(360deg); opacity: 0; }
+}
+
+/* Sol invisible pour les rebonds */
+.dice-container::after,
+.dice-100-container::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  pointer-events: none;
+}
+
+/* Styles pour le conteneur DiceBox 3D */
+#dice-box-container {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: -10;
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
+  pointer-events: none;
+}
+
+/* Forcer le canvas DiceBox à prendre toute la taille du conteneur */
+#dice-box-container canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+/* Styles pour react-pdf */
+.react-pdf__Page {
+  max-width: calc(100% - 2em);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin: 1em;
+}
+
+.react-pdf__Page__canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.react-pdf__Page__textContent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: transparent;
+  transform-origin: 0% 0%;
+  white-space: pre;
+  cursor: text;
+  user-select: text;
+}
+
+.react-pdf__Page__textContent span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.react-pdf__Page__annotations {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.react-pdf__Page__annotation {
+  position: absolute;
+  transform-origin: 0% 0%;
+}
+
+/* Styles pour les contrôles PDF */
+.pdf-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.pdf-controls button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ccc;
+  background: white;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pdf-controls button:hover:not(:disabled) {
+  background: #f5f5f5;
+  border-color: #999;
+}
+
+.pdf-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pdf-scale-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pdf-page-info {
+  font-size: 0.875rem;
+  color: #666;
+  min-width: 120px;
+  text-align: center;
+}

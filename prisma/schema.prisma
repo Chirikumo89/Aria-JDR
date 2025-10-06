@@ -1,0 +1,180 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Modèle pour les utilisateurs
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  role      String   @default("player") // "player" ou "mj"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  characters Character[]
+  diceRolls  DiceRoll[]
+  
+  @@map("users")
+}
+
+// Modèle pour les parties de JDR
+model Game {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  characters    Character[]
+  diceRolls     DiceRoll[]
+  gameSessions  GameSession[]
+  cards         Card[]
+  
+  @@map("games")
+}
+
+  // Modèle pour les personnages
+  model Character {
+    id          String   @id @default(cuid())
+    name        String
+    playerName  String
+    function    String?  // Fonction du personnage (ex: Barde (Voleur))
+    age         Int?
+  
+  // Points de vie et combat
+  lifePoints  Int?     // Points de vie
+  wounds      Int?     // Blessures
+  protection  Int?     // Protection
+  
+    // Armes (3 armes max)
+    weapon1     String?  // Arme 1
+    damage1     String?  // Dégâts arme 1 (ex: 1d4)
+    weapon2     String?  // Arme 2
+    damage2     String?  // Dégâts arme 2 (ex: 1d6)
+    weapon3     String?  // Arme 3
+    damage3     String?  // Dégâts arme 3 (ex: 2d4)
+  
+  // Caractéristiques
+  strength    Int?     // Force
+  dexterity   Int?     // Dextérité
+  endurance   Int?     // Endurance
+  intelligence Int?    // Intelligence
+  charisma    Int?     // Charisme
+  
+  // Déclarations personnelles
+  awesomeBecause String? // "JE SUIS GÉNIAL-E PARCE QUE..."
+  societyProblems String? // "MAIS LA SOCIÉTÉ A DES PROBLÈMES AVEC MOI PARCE QUE..."
+  
+  // Compétences (20 compétences de base)
+  skills      Json?    // Compétences avec scores et liens
+  
+  // Compétences spéciales
+  specialSkills Json?  // Compétences spéciales
+  
+  // Possessions et notes
+  possessions String?  // Possessions
+  notes       String?  // Notes
+  
+  // Anciens champs pour compatibilité
+  level       Int      @default(1)
+  class       String?
+  race        String?
+  stats       Json?    // Pour stocker les statistiques du personnage
+  inventory   Json?    // Pour stocker l'inventaire
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  diceRolls   DiceRoll[]
+  characterCards CharacterCard[]
+  
+  @@map("characters")
+}
+
+// Modèle pour les lancers de dés
+model DiceRoll {
+  id        String   @id @default(cuid())
+  diceType  String   // "d6", "d10", "d100", etc.
+  result    Int
+  tens      Int?     // Pour les d100
+  units     Int?     // Pour les d100
+  createdAt DateTime @default(now())
+  
+  // Relations
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  characterId String?
+  character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@map("dice_rolls")
+}
+
+// Modèle pour les sessions de jeu
+model GameSession {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  date        DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  
+  @@map("game_sessions")
+}
+
+// Modèle pour les cartes
+model Card {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  image       String?  // Chemin vers l'image de la carte
+  type        String?  // Type de carte (objet, sort, compétence, etc.)
+  rarity      String?  // Rareté de la carte
+  cost        Int?     // Coût d'achat de la carte
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  characterCards CharacterCard[]
+  
+  @@map("cards")
+}
+
+// Modèle pour l'attribution des cartes aux personnages
+model CharacterCard {
+  id          String   @id @default(cuid())
+  acquiredAt  DateTime @default(now()) // Date d'acquisition
+  notes       String?  // Notes sur l'acquisition
+  
+  // Relations
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  cardId      String
+  card        Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  
+  @@unique([characterId, cardId]) // Un personnage ne peut avoir qu'une seule instance de chaque carte
+  @@map("character_cards")
+}
