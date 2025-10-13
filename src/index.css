@@ -1,38 +1,47 @@
 @import "tailwindcss";
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
   font-weight: 400;
 
-  /* Variables CSS pour le dark mode */
-  --bg-primary: #0f0f0f;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #262626;
-  --bg-card: #1e1e1e;
-  --bg-hover: #2a2a2a;
-  
-  --text-primary: #ffffff;
-  --text-secondary: #a3a3a3;
-  --text-muted: #737373;
-  
-  --border-primary: #404040;
-  --border-secondary: #525252;
-  --border-focus: #3b82f6;
-  
-  --accent-primary: #3b82f6;
-  --accent-secondary: #1d4ed8;
-  --accent-success: #10b981;
-  --accent-warning: #f59e0b;
-  --accent-error: #ef4444;
-  
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  /* Variables CSS pour le dark mode moderne */
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #131826;
+  --bg-tertiary: #1a2234;
+  --bg-card: #1e2638;
+  --bg-hover: #252d42;
+
+  /* Gradients modernes */
+  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  --gradient-success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --gradient-hero: linear-gradient(135deg, #0f1624 0%, #1a2642 50%, #2a3656 100%);
+  --gradient-card: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+
+  --border-primary: #334155;
+  --border-secondary: #475569;
+  --border-focus: #667eea;
+
+  --accent-primary: #667eea;
+  --accent-secondary: #764ba2;
+  --accent-success: #00f2fe;
+  --accent-warning: #fbbf24;
+  --accent-error: #f87171;
+
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 16px -4px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 40px -8px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 30px rgba(102, 126, 234, 0.3);
+  --shadow-glow-hover: 0 0 50px rgba(102, 126, 234, 0.5);
 
   color-scheme: dark;
   color: var(--text-primary);
-  background-color: var(--bg-primary);
+  background: var(--gradient-hero);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -77,58 +86,124 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: var(--bg-primary);
+  background: var(--gradient-hero);
   color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+/* Effet de particules en arrière-plan */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(102, 126, 234, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 90% 80%, rgba(118, 75, 162, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(0, 242, 254, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 h1 {
-  font-size: 3.2em;
+  font-size: 3.5em;
   line-height: 1.1;
+  background: linear-gradient(135deg, #667eea 0%, #00f2fe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 40px rgba(102, 126, 234, 0.3);
 }
 
 /* Styles pour les formulaires */
 input, textarea, select {
-  background-color: var(--bg-card);
+  background: rgba(30, 38, 56, 0.6);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border-primary);
   color: var(--text-primary);
-  border-radius: 8px;
-  padding: 0.75rem;
+  border-radius: 12px;
+  padding: 0.875rem 1rem;
   font-size: 1rem;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: rgba(30, 38, 56, 0.8);
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15), var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 input::placeholder, textarea::placeholder {
   color: var(--text-muted);
 }
 
+/* Masquer les flèches des inputs number (Chrome, Safari, Edge, Opera) */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Masquer les flèches des inputs number (Firefox) */
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* Styles pour les boutons */
 button {
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid transparent;
-  padding: 0.6em 1.2em;
+  padding: 0.75em 1.5em;
   font-size: 1em;
-  font-weight: 500;
+  font-weight: 600;
   font-family: inherit;
-  background-color: var(--bg-tertiary);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+button:hover::before {
+  width: 300px;
+  height: 300px;
 }
 
 button:hover {
-  background-color: var(--bg-hover);
+  background: var(--bg-hover);
   border-color: var(--border-secondary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+button:active {
+  transform: translateY(0);
 }
 
 button:focus,
@@ -166,20 +241,20 @@ button:focus-visible {
   box-shadow: var(--shadow-md);
 }
 
-/* Styles pour la fiche de personnage Aria */
+/* === Styles pour la fiche de personnage Aria === */
 .character-sheet {
-  background: linear-gradient(135deg, #f4f1e8 0%, #e8dcc0 50%, #d4c4a8 100%);
-  background-image: 
-    radial-gradient(circle at 20% 20%, rgba(139, 69, 19, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(160, 82, 45, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(101, 67, 33, 0.05) 0%, transparent 50%);
-  border: 3px solid #8b4513;
-  box-shadow: 
-    0 0 20px rgba(139, 69, 19, 0.3),
-    inset 0 0 20px rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, #f9f7f3 0%, #f0ebe5 50%, #e8dfd3 100%);
+  border: 3px solid #8b6f47;
+  border-radius: 16px;
+  box-shadow:
+    0 20px 60px rgba(139, 111, 71, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 0 0 1px rgba(139, 111, 71, 0.1);
   position: relative;
+  overflow: hidden;
 }
 
+/* Texture papier subtile */
 .character-sheet::before {
   content: '';
   position: absolute;
@@ -187,99 +262,137 @@ button:focus-visible {
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: 
+  background-image:
     repeating-linear-gradient(
-      45deg,
+      0deg,
       transparent,
-      transparent 2px,
-      rgba(139, 69, 19, 0.03) 2px,
-      rgba(139, 69, 19, 0.03) 4px
+      transparent 1px,
+      rgba(139, 111, 71, 0.02) 1px,
+      rgba(139, 111, 71, 0.02) 2px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(139, 111, 71, 0.02) 1px,
+      rgba(139, 111, 71, 0.02) 2px
     );
   pointer-events: none;
+  z-index: 1;
+}
+
+/* Bordure décorative intérieure */
+.character-sheet::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  border: 2px solid rgba(139, 111, 71, 0.2);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Assurer que le contenu est au-dessus des pseudo-éléments */
+.character-sheet > * {
+  position: relative;
+  z-index: 2;
 }
 
 .bg-parchment {
-  background: linear-gradient(135deg, #f4f1e8 0%, #e8dcc0 50%, #d4c4a8 100%);
+  background: linear-gradient(135deg, #f9f7f3 0%, #f0ebe5 50%, #e8dfd3 100%);
 }
 
 .text-ink {
-  color: #2c1810;
+  color: #3d2817;
 }
 
 .crown-icon {
-  filter: drop-shadow(2px 2px 4px rgba(139, 69, 19, 0.3));
+  filter: drop-shadow(3px 3px 6px rgba(139, 111, 71, 0.4));
 }
 
-/* Styles pour les inputs de la fiche */
+/* Styles modernes pour les inputs de la fiche */
 .character-sheet input,
 .character-sheet textarea {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  border-bottom: 2px solid #8b4513;
-  color: #2c1810;
-  font-family: 'Times New Roman', serif;
-  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(139, 111, 71, 0.3);
+  border-radius: 8px;
+  color: #3d2817;
+  font-family: 'Inter', system-ui, sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 1px 3px rgba(139, 111, 71, 0.1);
 }
 
 .character-sheet input:focus,
 .character-sheet textarea:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.2);
-  border-bottom-color: #a0522d;
-  box-shadow: 0 2px 4px rgba(139, 69, 19, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #8b6f47;
+  box-shadow:
+    inset 0 1px 3px rgba(139, 111, 71, 0.1),
+    0 0 0 3px rgba(139, 111, 71, 0.15);
+  transform: translateY(-1px);
 }
 
 .character-sheet input:disabled,
 .character-sheet textarea:disabled {
-  background: transparent;
-  cursor: default;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .character-sheet input::placeholder,
 .character-sheet textarea::placeholder {
-  color: rgba(44, 24, 16, 0.5);
+  color: rgba(61, 40, 23, 0.5);
   font-style: italic;
 }
 
-/* Styles pour les boutons de la fiche */
+/* Styles pour les boutons de la fiche - Modern & Elegant */
 .character-sheet button {
-  background: linear-gradient(135deg, #d2691e 0%, #cd853f 100%);
-  border: 2px solid #8b4513;
-  color: #f4f1e8;
-  font-weight: bold;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-  box-shadow: 
-    0 4px 8px rgba(139, 69, 19, 0.3),
+  background: linear-gradient(135deg, #8b6f47 0%, #a0826e 100%);
+  border: 2px solid #6d5638;
+  color: #ffffff;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  box-shadow:
+    0 4px 12px rgba(109, 86, 56, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .character-sheet button:hover {
-  background: linear-gradient(135deg, #cd853f 0%, #d2691e 100%);
-  box-shadow: 
-    0 6px 12px rgba(139, 69, 19, 0.4),
+  background: linear-gradient(135deg, #a0826e 0%, #8b6f47 100%);
+  box-shadow:
+    0 6px 16px rgba(109, 86, 56, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+}
+
+.character-sheet button:active {
+  transform: translateY(0);
 }
 
 /* Styles pour les icônes */
 .character-sheet .crown-icon {
-  font-size: 2rem;
-  text-shadow: 2px 2px 4px rgba(139, 69, 19, 0.5);
+  font-size: 2.5rem;
+  text-shadow: 3px 3px 6px rgba(139, 111, 71, 0.5);
 }
 
-/* Effet de vieillissement */
-.character-sheet::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    radial-gradient(circle at 10% 10%, rgba(139, 69, 19, 0.1) 0%, transparent 20%),
-    radial-gradient(circle at 90% 90%, rgba(160, 82, 45, 0.1) 0%, transparent 20%),
-    radial-gradient(circle at 50% 50%, rgba(101, 67, 33, 0.05) 0%, transparent 30%);
-  pointer-events: none;
+/* === Animations Modernes === */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeInOut {
@@ -287,6 +400,77 @@ button:focus-visible {
   10% { opacity: 1; transform: translateY(0); }
   90% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-20px); }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.3), 0 0 40px rgba(102, 126, 234, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(102, 126, 234, 0.5), 0 0 60px rgba(102, 126, 234, 0.3);
+  }
 }
 
 @keyframes diceRoll {
@@ -300,13 +484,37 @@ button:focus-visible {
   50% { transform: translateY(-10px); }
 }
 
-@keyframes glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(79, 70, 229, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(79, 70, 229, 0.6); }
+/* Classes d'animation */
+.animate-fadeIn {
+  animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .animate-fadeInOut {
   animation: fadeInOut 3s ease-in-out forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
 }
 
 .animate-diceRoll {
@@ -315,10 +523,6 @@ button:focus-visible {
 
 .animate-diceBounce {
   animation: diceBounce 0.6s ease-in-out infinite;
-}
-
-.animate-glow {
-  animation: glow 2s ease-in-out infinite;
 }
 
 /* Styles pour les dés 2D */
@@ -501,7 +705,7 @@ button:focus-visible {
   pointer-events: none;
 }
 
-/* Styles pour le conteneur DiceBox 3D */
+/* === Styles pour le plateau de jeu réaliste === */
 #dice-box-container {
   position: fixed !important;
   top: 0 !important;
@@ -509,7 +713,55 @@ button:focus-visible {
   width: 100vw !important;
   height: 100vh !important;
   z-index: -10;
-  background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
+  /* Texture de feutre de table de jeu (vert foncé élégant) */
+  background:
+    linear-gradient(135deg, rgba(0, 0, 0, 0.3) 0%, transparent 100%),
+    radial-gradient(ellipse at 30% 20%, rgba(20, 80, 40, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(10, 60, 30, 0.2) 0%, transparent 50%),
+    linear-gradient(180deg, #1a4d2e 0%, #0d3520 50%, #0a2618 100%);
+  pointer-events: none;
+}
+
+/* Texture de tissu/feutre subtle */
+#dice-box-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Bordure dorée décorative du plateau */
+#dice-box-container::after {
+  content: '';
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  border: 3px solid rgba(218, 165, 32, 0.4);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 30px rgba(218, 165, 32, 0.1),
+    0 0 20px rgba(218, 165, 32, 0.15);
   pointer-events: none;
 }
 

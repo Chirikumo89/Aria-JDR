@@ -39,6 +39,7 @@ model Game {
   diceRolls     DiceRoll[]
   gameSessions  GameSession[]
   cards         Card[]
+  transactions  Transaction[]
   
   @@map("games")
 }
@@ -52,9 +53,10 @@ model Game {
     age         Int?
   
   // Points de vie et combat
-  lifePoints  Int?     // Points de vie
-  wounds      Int?     // Blessures
-  protection  Int?     // Protection
+  lifePoints     Int?     // Points de vie maximum
+  currentLifePoints Int?  // Points de vie actuels
+  wounds         Int?     // Blessures
+  protection     Int?     // Protection
   
     // Armes (3 armes max)
     weapon1     String?  // Arme 1
@@ -85,6 +87,12 @@ model Game {
   possessions String?  // Possessions
   notes       String?  // Notes
   
+  // Système monétaire Aria
+  crowns      Int      @default(0)  // Couronnes (or) - monnaie principale
+  orbs        Int      @default(0)  // Orbes (argent) - 1 couronne = 10 orbes
+  scepters    Int      @default(0)  // Sceptres (cuivre) - 1 orbe = 10 sceptres
+  kings       Int      @default(0)  // Rois (fer) - 1 sceptre = 10 rois
+  
   // Anciens champs pour compatibilité
   level       Int      @default(1)
   class       String?
@@ -102,6 +110,7 @@ model Game {
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   diceRolls   DiceRoll[]
   characterCards CharacterCard[]
+  transactions Transaction[]
   
   @@map("characters")
 }
@@ -177,4 +186,22 @@ model CharacterCard {
   
   @@unique([characterId, cardId]) // Un personnage ne peut avoir qu'une seule instance de chaque carte
   @@map("character_cards")
+}
+
+// Modèle pour les transactions monétaires
+model Transaction {
+  id          String   @id @default(cuid())
+  type        String   // "payment", "income", "conversion", etc.
+  amount      Int      // Montant de la transaction
+  currency    String   // Type de monnaie utilisée (crowns, orbs, scepters, kings)
+  description String?  // Description de la transaction
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  characterId String
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  
+  @@map("transactions")
 }

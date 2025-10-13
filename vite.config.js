@@ -16,5 +16,16 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['@3d-dice/dice-box']
-  }
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  },
+  base: './'
 })

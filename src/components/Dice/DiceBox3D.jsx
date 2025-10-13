@@ -711,34 +711,39 @@ export default function DiceBox3D() {
   return (
     <>
       {/* Conteneur DiceBox - visible uniquement quand JE lance les dés */}
-      <div 
-        id="dice-box-container" 
-        style={{ 
+      <div
+        id="dice-box-container"
+        style={{
           position: "fixed",
           top: "0",
           left: "0",
           width: "100vw",
           height: "100vh",
-          zIndex: isVisible && !isReceivingStream ? 40 : -10000, // Z-index très bas si pas utilisé
-          background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%)",
-          pointerEvents: "none", // Désactiver les interactions avec le conteneur
-          display: isReceivingStream ? "none" : "block", // Complètement caché si on reçoit un stream
-          visibility: isReceivingStream ? "hidden" : "visible", // Double sécurité
-          opacity: isReceivingStream ? 0 : 1 // Triple sécurité
+          zIndex: isVisible && !isReceivingStream ? 40 : -10000,
+          pointerEvents: "none",
+          display: isReceivingStream ? "none" : "block",
+          visibility: isReceivingStream ? "hidden" : "visible",
+          opacity: isReceivingStream ? 0 : 1
         }}
       />
       
       {/* Affichage du stream vidéo reçu - remplace complètement le canvas local */}
       {isReceivingStream && (
-        <div 
-          style={{ 
+        <div
+          className="dice-stream-container"
+          style={{
             position: "fixed",
             top: "0",
             left: "0",
             width: "100vw",
             height: "100vh",
             zIndex: 40,
-            background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%)",
+            background: `
+              linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, transparent 100%),
+              radial-gradient(ellipse at 30% 20%, rgba(20, 80, 40, 0.3) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 80%, rgba(10, 60, 30, 0.3) 0%, transparent 50%),
+              linear-gradient(180deg, #1a4d2e 0%, #0d3520 50%, #0a2618 100%)
+            `,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

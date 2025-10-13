@@ -109,8 +109,12 @@ export function GameProvider({ children }) {
   // Mettre à jour un personnage
   const updateCharacter = async (characterId, characterData) => {
     try {
+      console.log('🔄 GameContext: updateCharacter called with:', characterId, characterData);
+      console.log('🔄 GameContext: currentLifePoints in characterData:', characterData.currentLifePoints);
       setLoading(true);
       const updatedCharacter = await apiService.updateCharacter(characterId, characterData);
+      console.log('✅ GameContext: Character updated successfully:', updatedCharacter);
+      console.log('✅ GameContext: Updated currentLifePoints:', updatedCharacter.currentLifePoints);
       setCharacters(prev => prev.map(c => c.id === characterId ? updatedCharacter : c));
       setError(null);
       return updatedCharacter;

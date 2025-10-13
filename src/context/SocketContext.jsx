@@ -9,7 +9,14 @@ export function SocketProvider({ children }) {
 
   useEffect(() => {
     console.log("[SocketContext] Initialisation de la connexion socket...");
-    const s = io("http://localhost:4000");
+    
+    // Utiliser l'URL du serveur de production
+    const socketUrl = window.location.hostname === 'localhost' 
+      ? "http://localhost:30072" 
+      : `http://${window.location.hostname}:30072`;
+    
+    console.log("[SocketContext] Connexion à:", socketUrl);
+    const s = io(socketUrl);
     
     s.on("connect", () => {
       console.log("[SocketContext] Socket connecté !");

@@ -11,14 +11,53 @@ dotenv.config();
 import { prisma } from "./lib/prisma.js";
 
 const app = express();
-const PORT = 4000;
+const PORT = process.env.PORT || 30072;
+
+// Configuration CORS pour Socket.IO et API
+const corsOptions = {
+  origin: [
+    'http://localhost:30072',
+    'http://185.207.226.6:30072',
+    'http://localhost:5173', // Pour le dev Vite
+    'http://localhost:3000'  // Pour le dev React
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'user-id']
+};
 
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Servir les fichiers statiques du dossier cartes
 app.use('/cartes', express.static('public/cartes'));
+
+// Diagnostic de l'environnement
+console.log('[Server] NODE_ENV:', process.env.NODE_ENV);
+console.log('[Server] Working directory:', process.cwd());
+console.log('[Server] Dossier dist existe:', fs.existsSync('dist'));
+console.log('[Server] index.html existe:', fs.existsSync('dist/index.html'));
+
+// Servir les fichiers statiques du client (toujours en production sur Webstrator)
+console.log('[Server] Configuration du serveur de fichiers statiques...');
+console.log('[Server] Dossier dist:', path.join(process.cwd(), 'dist'));
+
+// Servir les fichiers statiques du dossier dist
+app.use(express.static('dist'));
+
+console.log('[Server] Fichiers statiques configurés pour le dossier dist');
+
+// Route de test pour vérifier que le serveur fonctionne
+app.get('/test', (req, res) => {
+  res.json({ 
+    message: 'Serveur fonctionne !', 
+    nodeEnv: process.env.NODE_ENV,
+    workingDir: process.cwd(),
+    distExists: fs.existsSync('dist'),
+    indexExists: fs.existsSync('dist/index.html')
+  });
+});
 
 // Routes API pour l'authentification
 app.post("/api/auth/login", async (req, res) => {
@@ -305,6 +344,9 @@ app.post("/api/games/:id/characters", async (req, res) => {
       notes: character.notes ? JSON.parse(character.notes) : []
     };
     
+    // Émettre l'événement WebSocket pour notifier les MJ
+    emitToAll('characterCreated', processedCharacter);
+    
     res.json(processedCharacter);
   } catch (error) {
     console.error("Erreur lors de la création du personnage:", error);
@@ -363,11 +405,19 @@ app.put("/api/characters/:id", async (req, res) => {
     };
     
     console.log("Données reçues pour mise à jour:", processedData);
+    console.log("currentLifePoints reçu:", characterData.currentLifePoints);
     
     const character = await prisma.character.update({
       where: { id },
       data: processedData
     });
+    
+    // Émettre l'événement WebSocket pour notifier les MJ
+    emitToAll('characterUpdated', character);
+    
+    console.log("Personnage mis à jour avec succès:", character);
+    console.log("currentLifePoints sauvegardé:", character.currentLifePoints);
+    
     res.json(character);
   } catch (error) {
     console.error("Erreur lors de la mise à jour du personnage:", error);
@@ -408,6 +458,9 @@ app.delete("/api/characters/:id", async (req, res) => {
     await prisma.character.delete({
       where: { id }
     });
+    
+    // Émettre l'événement WebSocket pour notifier les MJ
+    emitToAll('characterDeleted', id);
     
     res.json({ message: "Personnage supprimé avec succès" });
   } catch (error) {
@@ -682,6 +735,56 @@ app.delete("/api/cards/:id/remove", async (req, res) => {
   }
 });
 
+// Endpoints pour les transactions
+app.get("/api/characters/:id/transactions", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const transactions = await prisma.transaction.findMany({
+      where: { characterId: id },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json(transactions);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des transactions:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post("/api/characters/:id/transactions", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type, amount, currency, description } = req.body;
+    
+    // Vérifier que le personnage existe
+    const character = await prisma.character.findUnique({
+      where: { id },
+      include: { game: true }
+    });
+    
+    if (!character) {
+      return res.status(404).json({ error: "Personnage non trouvé" });
+    }
+    
+    const transaction = await prisma.transaction.create({
+      data: {
+        type,
+        amount,
+        currency,
+        description,
+        characterId: id,
+        gameId: character.gameId
+      }
+    });
+    
+    res.json(transaction);
+  } catch (error) {
+    console.error("Erreur lors de la création de la transaction:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // Route pour scanner les cartes disponibles
 app.get("/api/cards/available", async (req, res) => {
   try {
@@ -723,11 +826,77 @@ app.get("/api/cards/available", async (req, res) => {
   }
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`[Server] API server running on port ${PORT}`);
+// Route pour la racine
+app.get('/', (req, res) => {
+  console.log(`[Server] Route racine demandée`);
+  const indexPath = path.join(process.cwd(), 'dist', 'index.html');
+  console.log(`[Server] Tentative de servir: ${indexPath}`);
+  console.log(`[Server] Fichier existe: ${fs.existsSync(indexPath)}`);
+  
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).json({ 
+      error: 'Fichier index.html non trouvé',
+      path: indexPath,
+      workingDir: process.cwd(),
+      distExists: fs.existsSync('dist')
+    });
+  }
 });
 
-const io = new Server(server, { cors: { origin: "*" } });
+// Route de fallback pour toutes les autres routes SPA
+app.use((req, res) => {
+  console.log(`[Server] Route de fallback pour: ${req.path}`);
+  const indexPath = path.join(process.cwd(), 'dist', 'index.html');
+  console.log(`[Server] Tentative de servir: ${indexPath}`);
+  console.log(`[Server] Fichier existe: ${fs.existsSync(indexPath)}`);
+  
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).json({ 
+      error: 'Fichier index.html non trouvé',
+      path: indexPath,
+      workingDir: process.cwd(),
+      distExists: fs.existsSync('dist')
+    });
+  }
+});
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Server] API server running on port ${PORT}`);
+  console.log(`[Server] Accessible via localhost: http://localhost:${PORT}`);
+  console.log(`[Server] Accessible via Webstrator: http://185.207.226.6:${PORT}`);
+  console.log('');
+  console.log('🌐 Application déployée sur Webstrator');
+  console.log(`📱 URL d\'accès: http://185.207.226.6:${PORT}`);
+  console.log('');
+});
+
+// Créer l'instance Socket.IO
+const io = new Server(server, { 
+  cors: {
+    origin: [
+      'http://localhost:30072',
+      'http://185.207.226.6:30072',
+      'http://localhost:5173', // Pour le dev Vite
+      'http://localhost:3000'  // Pour le dev React
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Fonction pour émettre des événements WebSocket
+const emitToAll = (event, data) => {
+  if (io) {
+    console.log(`[Server] Émission ${event}:`, data?.name || data);
+    io.emit(event, data);
+  } else {
+    console.warn(`[Server] Impossible d'émettre ${event}: io non disponible`);
+  }
+};
 
 io.on("connection", (socket) => {
   console.log("🧑 Un joueur est connecté :", socket.id);
@@ -806,4 +975,4 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => console.log("[Server] Un joueur est parti"));
 });
 
-console.log("[Server] Socket.IO server running on port 4000");
+console.log(`[Server] Socket.IO server running on port ${PORT}`);

@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Games from "./pages/Games";
 import CharacterSheetPage from "./pages/CharacterSheetPage";
+import MJDashboard from "./pages/MJDashboard";
 import DiceBox3D from "./components/Dice/DiceBox3D";
 import DiceSelector3D from "./components/Dice/DiceSelector3D";
 import DiceBoxTest from "./components/Dice/DiceBoxTest";
@@ -25,6 +26,7 @@ function AppContent() {
         <Route path="/" element={<Home />} />
         <Route path="/games" element={<Games />} />
         <Route path="/character/:characterId" element={<CharacterSheetPage />} />
+        <Route path="/mj/:gameId" element={<MJDashboard />} />
       </Routes>
 
       {/* Système 3D DiceBox obligatoire */}

@@ -1,16 +1,47 @@
-# React + Vite
+# 🎲 Aria JDR
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application de gestion de parties de jeu de rôle Aria avec système de dés 3D et gestion de cartes.
 
-Currently, two official plugins are available:
+## 🚀 Démarrage rapide
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Développement local
 
-## React Compiler
+```bash
+# Installer les dépendances
+npm install
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+# Démarrer le serveur de développement
+npm run dev:full
+```
 
-## Expanding the ESLint configuration
+### Production avec Hamachi
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+# Démarrer en mode Hamachi (build + serveur)
+npm run hamachi
+```
+
+## 🌐 Accès réseau
+
+- **Local** : `http://localhost:4000`
+- **Hamachi** : `http://[VOTRE_IP_HAMACHI]:4000`
+
+## 📋 Fonctionnalités
+
+- 🎲 Système de dés 3D interactif
+- 👥 Gestion des personnages et parties
+- 🗺️ Système de cartes géographiques
+- 🔄 Synchronisation temps réel via Socket.IO
+- 🎮 Interface multijoueur
+
+## 🔧 Scripts disponibles
+
+- `npm run dev` - Client de développement
+- `npm run server` - Serveur API uniquement
+- `npm run dev:full` - Client + serveur en développement
+- `npm run hamachi` - Build + serveur pour Hamachi
+- `npm run build` - Build de production
+
+## 📚 Documentation
+
+- [Guide Hamachi](HAMACHI_GUIDE.md) - Configuration pour les sessions multijoueurs

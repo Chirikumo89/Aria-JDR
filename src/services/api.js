@@ -1,4 +1,21 @@
-const API_BASE_URL = 'http://localhost:4000/api';
+// Configuration de l'URL de base de l'API selon l'environnement
+const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    // Dans le navigateur
+    const hostname = window.location.hostname;
+    const port = window.location.port || '30072';
+    
+    if (hostname === 'localhost') {
+      return `http://localhost:30072/api`;
+    } else {
+      return `http://${hostname}:30072/api`;
+    }
+  }
+  // Fallback pour le serveur
+  return 'http://localhost:30072/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 class ApiService {
   constructor() {
@@ -199,6 +216,29 @@ class ApiService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Erreur lors de la suppression de la carte du personnage');
+    }
+    return response.json();
+  }
+
+  // Transactions
+  async getCharacterTransactions(characterId) {
+    const response = await fetch(`${API_BASE_URL}/characters/${characterId}/transactions`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération des transactions');
+    }
+    return response.json();
+  }
+
+  async createTransaction(characterId, transactionData) {
+    const response = await fetch(`${API_BASE_URL}/characters/${characterId}/transactions`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(transactionData)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la création de la transaction');
     }
     return response.json();
   }
