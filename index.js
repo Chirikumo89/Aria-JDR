@@ -46,4 +46,4 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   console.log('📡 Signal SIGINT reçu, arrêt du serveur...');
   server.kill('SIGINT');
-});
+}); 
