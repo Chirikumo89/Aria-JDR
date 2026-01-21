@@ -34,12 +34,19 @@ model Game {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  // Caisse commune (accessible à tous les joueurs de la partie)
+  commonTreasuryCrowns   Int @default(0)  // Couronnes (or) - monnaie principale
+  commonTreasuryOrbs     Int @default(0)  // Orbes (argent) - 1 couronne = 10 orbes
+  commonTreasuryScepters  Int @default(0)  // Sceptres (cuivre) - 1 orbe = 10 sceptres
+  commonTreasuryKings     Int @default(0)  // Rois (fer) - 1 sceptre = 10 rois
+  
   // Relations
   characters    Character[]
   diceRolls     DiceRoll[]
   gameSessions  GameSession[]
   cards         Card[]
   transactions  Transaction[]
+  commonTreasuryTransactions CommonTreasuryTransaction[]
   
   @@map("games")
 }
@@ -204,4 +211,21 @@ model Transaction {
   game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
   
   @@map("transactions")
+}
+
+// Modèle pour les transactions de la caisse commune
+model CommonTreasuryTransaction {
+  id          String   @id @default(cuid())
+  type        String   // "payment", "income", "conversion", etc.
+  amount      Int      // Montant de la transaction
+  currency    String   // Type de monnaie utilisée (crowns, orbs, scepters, kings)
+  description String?  // Description de la transaction
+  username    String   // Pseudo de la personne qui fait la transaction
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  
+  @@map("common_treasury_transactions")
 }

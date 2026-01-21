@@ -242,6 +242,52 @@ class ApiService {
     }
     return response.json();
   }
+
+  // Caisse commune
+  async getCommonTreasury(gameId) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/common-treasury`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération de la caisse commune');
+    }
+    return response.json();
+  }
+
+  async updateCommonTreasury(gameId, treasuryData) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/common-treasury`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(treasuryData)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la mise à jour de la caisse commune');
+    }
+    return response.json();
+  }
+
+  // Transactions de la caisse commune
+  async getCommonTreasuryTransactions(gameId) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/common-treasury/transactions`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération des transactions de la caisse commune');
+    }
+    return response.json();
+  }
+
+  async createCommonTreasuryTransaction(gameId, transactionData) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/common-treasury/transactions`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(transactionData)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la création de la transaction de la caisse commune');
+    }
+    return response.json();
+  }
 }
 
 export const apiService = new ApiService();

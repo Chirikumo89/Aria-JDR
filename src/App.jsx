@@ -38,8 +38,8 @@ function AppContent() {
       {/* Test DiceBox - TEMPORAIRE - MASQUÉ */}
       {/* <DiceBoxTest /> */}
       
-              {/* Notification globale pour les dés uniquement - FILTRÉE pour éviter les doublons */}
-              <Notification notifications={notifications.filter(n => n.type === 'dice' && n.notation)} onClose={hideNotification} />
+              {/* Notification globale pour les dés et la caisse commune */}
+              <Notification notifications={notifications.filter(n => (n.type === 'dice' && n.notation) || n.type === 'treasury')} onClose={hideNotification} />
               
               {/* Système de notifications moderne - DÉSACTIVÉ pour éviter les doublons */}
               {/* <NotificationSystem /> */}

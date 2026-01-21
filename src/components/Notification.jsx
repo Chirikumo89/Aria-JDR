@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CURRENCY_SYMBOLS, CURRENCY_NAMES } from "../utils/currency";
 
 export default function Notification({ notifications, onClose }) {
   console.log("[Notification] 🎯 RENDER - Notifications reçues:", notifications?.length || 0);
@@ -103,6 +104,35 @@ function NotificationItem({ data, onClose }) {
       criticalResult: criticalResult,
       player: data.player
     });
+  }
+
+  // Gestion des notifications de type "treasury" (caisse commune)
+  if (data.type === 'treasury') {
+    return (
+      <div className="fixed top-4 left-4 z-60 bg-gradient-to-r from-emerald-400 to-teal-400 text-black px-6 py-4 rounded-xl shadow-2xl transition-all duration-500 transform animate-bounce">
+        <div className="text-center relative">
+          <div className="absolute -top-1 -left-1 w-4 h-4 bg-emerald-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
+            💰
+          </div>
+          
+          <button
+            onClick={handleClose}
+            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm font-bold hover:bg-red-600 transition-colors"
+          >
+            ×
+          </button>
+          <div className="text-lg font-bold">🏛️ Caisse Commune</div>
+          <div className="text-sm mt-1">
+            {data.message || `${data.username || "Joueur"} a effectué une transaction`}
+          </div>
+          {data.amount && data.currency && (
+            <div className="text-xs text-gray-700 mt-1">
+              {data.amount} {CURRENCY_SYMBOLS[data.currency]} {CURRENCY_NAMES[data.currency]}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (

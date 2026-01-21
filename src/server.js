@@ -176,6 +176,75 @@ app.get("/api/games", async (req, res) => {
   }
 });
 
+// Route pour récupérer la caisse commune d'une partie
+app.get("/api/games/:id/common-treasury", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const game = await prisma.game.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        commonTreasuryCrowns: true,
+        commonTreasuryOrbs: true,
+        commonTreasuryScepters: true,
+        commonTreasuryKings: true
+      }
+    });
+    
+    if (!game) {
+      return res.status(404).json({ error: "Partie non trouvée" });
+    }
+    
+    res.json(game);
+  } catch (error) {
+    console.error("Erreur lors de la récupération de la caisse commune:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Route pour mettre à jour la caisse commune d'une partie
+app.put("/api/games/:id/common-treasury", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { commonTreasuryCrowns, commonTreasuryOrbs, commonTreasuryScepters, commonTreasuryKings } = req.body;
+    
+    // Vérifier que la partie existe
+    const game = await prisma.game.findUnique({
+      where: { id }
+    });
+    
+    if (!game) {
+      return res.status(404).json({ error: "Partie non trouvée" });
+    }
+    
+    // Mettre à jour la caisse commune
+    const updatedGame = await prisma.game.update({
+      where: { id },
+      data: {
+        commonTreasuryCrowns: commonTreasuryCrowns || 0,
+        commonTreasuryOrbs: commonTreasuryOrbs || 0,
+        commonTreasuryScepters: commonTreasuryScepters || 0,
+        commonTreasuryKings: commonTreasuryKings || 0
+      },
+      select: {
+        id: true,
+        commonTreasuryCrowns: true,
+        commonTreasuryOrbs: true,
+        commonTreasuryScepters: true,
+        commonTreasuryKings: true
+      }
+    });
+    
+    // Émettre l'événement WebSocket pour notifier les autres joueurs
+    emitToAll('commonTreasuryUpdated', { gameId: id, treasury: updatedGame });
+    
+    res.json(updatedGame);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de la caisse commune:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
 app.post("/api/games", async (req, res) => {
   try {
     const { name, description } = req.body;
@@ -782,6 +851,66 @@ app.post("/api/characters/:id/transactions", async (req, res) => {
   } catch (error) {
     console.error("Erreur lors de la création de la transaction:", error);
     res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Routes pour les transactions de la caisse commune
+app.get("/api/games/:id/common-treasury/transactions", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const transactions = await prisma.commonTreasuryTransaction.findMany({
+      where: { gameId: id },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json(transactions);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des transactions de la caisse commune:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post("/api/games/:id/common-treasury/transactions", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type, amount, currency, description, username } = req.body;
+    
+    // Vérifier que la partie existe
+    const game = await prisma.game.findUnique({
+      where: { id }
+    });
+    
+    if (!game) {
+      return res.status(404).json({ error: "Partie non trouvée" });
+    }
+    
+    if (!username) {
+      return res.status(400).json({ error: "Nom d'utilisateur requis" });
+    }
+    
+    const transaction = await prisma.commonTreasuryTransaction.create({
+      data: {
+        type,
+        amount,
+        currency,
+        description,
+        username,
+        gameId: id
+      }
+    });
+    
+    // Émettre l'événement WebSocket pour notifier tous les joueurs
+    emitToAll('commonTreasuryTransaction', {
+      gameId: id,
+      transaction,
+      username
+    });
+    
+    res.json(transaction);
+  } catch (error) {
+    console.error("Erreur lors de la création de la transaction de la caisse commune:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
   }
 });
 

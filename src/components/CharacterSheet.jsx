@@ -6,6 +6,7 @@ import TextareaChecklist from './TextareaChecklist';
 import CharacterCards from './Cards/CharacterCards';
 import MoneyManager from './MoneyManager';
 import LifePointsManager from './LifePointsManager';
+import CommonTreasury from './CommonTreasury';
 import { migrateChecklistData } from '../utils/migrateChecklistData';
 
 const SKILLS = [
@@ -548,6 +549,15 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
           characterId={character?.id}
         />
       </div>
+
+      {/* Caisse commune */}
+      {(character?.gameId || character?.game?.id) && (
+        <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-emerald-100/60 border-2 border-emerald-200/50 shadow-md">
+          <CommonTreasury 
+            gameId={character.gameId || character.game?.id}
+          />
+        </div>
+      )}
 
       {/* Gestion des Points de Vie */}
       <div className="mb-8">
