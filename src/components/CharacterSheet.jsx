@@ -7,6 +7,7 @@ import CharacterCards from './Cards/CharacterCards';
 import MoneyManager from './MoneyManager';
 import LifePointsManager from './LifePointsManager';
 import CommonTreasury from './CommonTreasury';
+import VehicleInventory from './VehicleInventory';
 import { migrateChecklistData } from '../utils/migrateChecklistData';
 
 const SKILLS = [
@@ -555,6 +556,16 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
         <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-emerald-100/60 border-2 border-emerald-200/50 shadow-md">
           <CommonTreasury 
             gameId={character.gameId || character.game?.id}
+          />
+        </div>
+      )}
+
+      {/* Véhicules & Inventaires communs */}
+      {(character?.gameId || character?.game?.id) && (
+        <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-cyan-50/80 to-cyan-100/60 border-2 border-cyan-200/50 shadow-md">
+          <VehicleInventory 
+            gameId={character.gameId || character.game?.id}
+            disabled={!canEdit}
           />
         </div>
       )}

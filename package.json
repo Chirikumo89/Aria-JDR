@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "server": "node src/server.js",
     "webstrator": "node start-webstrator.js",
-    "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
+    "dev:full": "npx prisma generate && concurrently \"npm run server\" \"npm run dev\"",
     "hamachi": "node start-hamachi.js"
   },
   "dependencies": {

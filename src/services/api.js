@@ -288,6 +288,156 @@ class ApiService {
     }
     return response.json();
   }
+
+  // Véhicules (inventaire commun)
+  async getVehicles(gameId) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/vehicles`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération des véhicules');
+    }
+    return response.json();
+  }
+
+  async createVehicle(gameId, vehicleData) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/vehicles`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(vehicleData)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la création du véhicule');
+    }
+    return response.json();
+  }
+
+  async updateVehicle(vehicleId, vehicleData) {
+    const response = await fetch(`${API_BASE_URL}/vehicles/${vehicleId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(vehicleData)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la mise à jour du véhicule');
+    }
+    return response.json();
+  }
+
+  async deleteVehicle(vehicleId) {
+    const response = await fetch(`${API_BASE_URL}/vehicles/${vehicleId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la suppression du véhicule');
+    }
+    return response.json();
+  }
+
+  // Demandes de cagettes
+  async getCrateRequests(gameId, status = null) {
+    const url = status 
+      ? `${API_BASE_URL}/games/${gameId}/crate-requests?status=${status}`
+      : `${API_BASE_URL}/games/${gameId}/crate-requests`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération des demandes');
+    }
+    return response.json();
+  }
+
+  async createCrateRequest(vehicleId, data) {
+    const response = await fetch(`${API_BASE_URL}/vehicles/${vehicleId}/crate-requests`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la création de la demande');
+    }
+    return response.json();
+  }
+
+  async updateCrateRequest(requestId, data) {
+    const response = await fetch(`${API_BASE_URL}/crate-requests/${requestId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la mise à jour de la demande');
+    }
+    return response.json();
+  }
+
+  async deleteCrateRequest(requestId) {
+    const response = await fetch(`${API_BASE_URL}/crate-requests/${requestId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la suppression de la demande');
+    }
+    return response.json();
+  }
+
+  // Demandes de véhicules
+  async getVehicleRequests(gameId, status = null) {
+    const url = status 
+      ? `${API_BASE_URL}/games/${gameId}/vehicle-requests?status=${status}`
+      : `${API_BASE_URL}/games/${gameId}/vehicle-requests`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération des demandes de véhicules');
+    }
+    return response.json();
+  }
+
+  async createVehicleRequest(gameId, data) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/vehicle-requests`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la création de la demande de véhicule');
+    }
+    return response.json();
+  }
+
+  async updateVehicleRequest(requestId, data) {
+    const response = await fetch(`${API_BASE_URL}/vehicle-requests/${requestId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la mise à jour de la demande de véhicule');
+    }
+    return response.json();
+  }
+
+  async deleteVehicleRequest(requestId) {
+    const response = await fetch(`${API_BASE_URL}/vehicle-requests/${requestId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la suppression de la demande de véhicule');
+    }
+    return response.json();
+  }
 }
 
 export const apiService = new ApiService();

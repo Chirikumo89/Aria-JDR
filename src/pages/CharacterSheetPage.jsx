@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { apiService } from '../services/api';
 import CharacterSheet from '../components/CharacterSheet';
+import CrateRequestsPanel from '../components/CrateRequestsPanel';
 
 export default function CharacterSheetPage() {
   const { characterId } = useParams();
@@ -252,6 +253,9 @@ export default function CharacterSheetPage() {
           )}
         </div>
       </div>
+
+      {/* Panel des demandes de cagettes (MJ seulement) */}
+      <CrateRequestsPanel gameId={character?.gameId || character?.game?.id} />
     </div>
   );
 }

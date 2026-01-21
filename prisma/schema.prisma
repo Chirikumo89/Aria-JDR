@@ -47,6 +47,9 @@ model Game {
   cards         Card[]
   transactions  Transaction[]
   commonTreasuryTransactions CommonTreasuryTransaction[]
+  vehicles      Vehicle[]
+  crateRequests CrateRequest[]
+  vehicleRequests VehicleRequest[]
   
   @@map("games")
 }
@@ -228,4 +231,58 @@ model CommonTreasuryTransaction {
   game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
   
   @@map("common_treasury_transactions")
+}
+
+// Modèle pour les véhicules (inventaires communs aux joueurs)
+model Vehicle {
+  id          String   @id @default(cuid())
+  name        String   // Nom du véhicule (libre)
+  maxCrates   Int      @default(1)  // Nombre max de cagettes (modifiable par MJ uniquement)
+  crates      Json?    // Liste des cagettes (nom uniquement)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  crateRequests CrateRequest[]
+  
+  @@map("vehicles")
+}
+
+// Modèle pour les demandes d'augmentation de capacité de cagettes
+model CrateRequest {
+  id             String   @id @default(cuid())
+  requestedSlots Int      @default(1) // Nombre de slots supplémentaires demandés
+  reason         String?  // Raison de la demande (optionnel)
+  status         String   @default("pending") // pending, approved, rejected
+  username       String   // Pseudo du joueur qui fait la demande
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  vehicleId   String
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  
+  @@map("crate_requests")
+}
+
+// Modèle pour les demandes de création de véhicule
+model VehicleRequest {
+  id           String   @id @default(cuid())
+  vehicleName  String   // Nom du véhicule demandé
+  maxCrates    Int      @default(1) // Capacité demandée
+  reason       String?  // Raison de la demande (optionnel)
+  status       String   @default("pending") // pending, approved, rejected
+  username     String   // Pseudo du joueur qui fait la demande
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  
+  @@map("vehicle_requests")
 }

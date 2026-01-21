@@ -914,6 +914,557 @@ app.post("/api/games/:id/common-treasury/transactions", async (req, res) => {
   }
 });
 
+// Routes pour les véhicules (inventaire commun)
+app.get("/api/games/:id/vehicles", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const vehicles = await prisma.vehicle.findMany({
+      where: { gameId: id },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    // Parser le JSON des cagettes pour chaque véhicule
+    const processedVehicles = vehicles.map(vehicle => ({
+      ...vehicle,
+      crates: vehicle.crates ? JSON.parse(vehicle.crates) : []
+    }));
+    
+    res.json(processedVehicles);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des véhicules:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post("/api/games/:id/vehicles", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, maxCrates } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent créer des véhicules" });
+    }
+    
+    // Vérifier que la partie existe
+    const game = await prisma.game.findUnique({
+      where: { id }
+    });
+    
+    if (!game) {
+      return res.status(404).json({ error: "Partie non trouvée" });
+    }
+    
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        name: name || 'Nouveau véhicule',
+        maxCrates: maxCrates || 1,
+        crates: JSON.stringify([]),
+        gameId: id
+      }
+    });
+    
+    // Parser les cagettes pour la réponse
+    const processedVehicle = {
+      ...vehicle,
+      crates: []
+    };
+    
+    // Émettre l'événement WebSocket pour notifier tous les joueurs
+    emitToAll('vehicleCreated', { gameId: id, vehicle: processedVehicle });
+    
+    res.json(processedVehicle);
+  } catch (error) {
+    console.error("Erreur lors de la création du véhicule:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.put("/api/vehicles/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, maxCrates, crates } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que le véhicule existe
+    const existingVehicle = await prisma.vehicle.findUnique({
+      where: { id }
+    });
+    
+    if (!existingVehicle) {
+      return res.status(404).json({ error: "Véhicule non trouvé" });
+    }
+    
+    // Préparer les données à mettre à jour
+    const updateData = {};
+    
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    const isMJ = user && user.role === 'mj';
+    
+    // Tout le monde peut modifier le nom du véhicule
+    if (name !== undefined) updateData.name = name;
+    
+    // Seul le MJ peut modifier le maxCrates du véhicule
+    if (isMJ) {
+      if (maxCrates !== undefined) updateData.maxCrates = maxCrates;
+    }
+    
+    // Gestion des cagettes
+    if (crates !== undefined) {
+      const currentCrates = existingVehicle.crates ? JSON.parse(existingVehicle.crates) : [];
+      const vehicleMaxCrates = maxCrates !== undefined ? maxCrates : existingVehicle.maxCrates;
+      
+      // Vérifier que le nombre de cagettes ne dépasse pas le max (sauf pour le MJ)
+      if (!isMJ && crates.length > vehicleMaxCrates) {
+        return res.status(403).json({ 
+          error: `Nombre maximum de cagettes atteint (${vehicleMaxCrates}). Faites une demande au MJ pour en ajouter.` 
+        });
+      }
+      
+      updateData.crates = JSON.stringify(crates);
+    }
+    
+    const vehicle = await prisma.vehicle.update({
+      where: { id },
+      data: updateData
+    });
+    
+    // Parser les cagettes pour la réponse
+    const processedVehicle = {
+      ...vehicle,
+      crates: vehicle.crates ? JSON.parse(vehicle.crates) : []
+    };
+    
+    // Émettre l'événement WebSocket pour notifier tous les joueurs
+    emitToAll('vehicleUpdated', { gameId: existingVehicle.gameId, vehicle: processedVehicle });
+    
+    res.json(processedVehicle);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du véhicule:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// Routes pour les demandes de cagettes
+app.get("/api/games/:id/crate-requests", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.query;
+    
+    const where = { gameId: id };
+    if (status) {
+      where.status = status;
+    }
+    
+    const requests = await prisma.crateRequest.findMany({
+      where,
+      include: {
+        vehicle: {
+          select: { id: true, name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json(requests);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des demandes:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post("/api/vehicles/:id/crate-requests", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { requestedSlots, reason } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+    
+    // Vérifier que le véhicule existe
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id }
+    });
+    
+    if (!vehicle) {
+      return res.status(404).json({ error: "Véhicule non trouvé" });
+    }
+    
+    const request = await prisma.crateRequest.create({
+      data: {
+        requestedSlots: requestedSlots || 1,
+        reason: reason || null,
+        username: user.username,
+        vehicleId: id,
+        gameId: vehicle.gameId
+      },
+      include: {
+        vehicle: {
+          select: { id: true, name: true, maxCrates: true }
+        }
+      }
+    });
+    
+    // Émettre l'événement WebSocket pour notifier le MJ
+    emitToAll('crateRequestCreated', { gameId: vehicle.gameId, request });
+    
+    res.json(request);
+  } catch (error) {
+    console.error("Erreur lors de la création de la demande:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.put("/api/crate-requests/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent approuver les demandes" });
+    }
+    
+    // Récupérer la demande
+    const request = await prisma.crateRequest.findUnique({
+      where: { id },
+      include: { vehicle: true }
+    });
+    
+    if (!request) {
+      return res.status(404).json({ error: "Demande non trouvée" });
+    }
+    
+    // Mettre à jour le statut de la demande
+    const updatedRequest = await prisma.crateRequest.update({
+      where: { id },
+      data: { status },
+      include: {
+        vehicle: {
+          select: { id: true, name: true, maxCrates: true }
+        }
+      }
+    });
+    
+    // Si approuvée, augmenter seulement maxCrates (sans ajouter de cagette)
+    if (status === 'approved') {
+      const vehicle = request.vehicle;
+      const requestedIncrease = request.requestedSlots || 1;
+      
+      const updatedVehicle = await prisma.vehicle.update({
+        where: { id: vehicle.id },
+        data: {
+          maxCrates: vehicle.maxCrates + requestedIncrease
+        }
+      });
+      
+      // Parser et émettre la mise à jour du véhicule
+      const processedVehicle = {
+        ...updatedVehicle,
+        crates: updatedVehicle.crates ? JSON.parse(updatedVehicle.crates) : []
+      };
+      
+      emitToAll('vehicleUpdated', { gameId: vehicle.gameId, vehicle: processedVehicle });
+    }
+    
+    // Émettre l'événement pour la mise à jour de la demande
+    emitToAll('crateRequestUpdated', { gameId: request.gameId, request: updatedRequest });
+    
+    res.json(updatedRequest);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de la demande:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.delete("/api/crate-requests/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent supprimer les demandes" });
+    }
+    
+    const request = await prisma.crateRequest.findUnique({
+      where: { id }
+    });
+    
+    if (!request) {
+      return res.status(404).json({ error: "Demande non trouvée" });
+    }
+    
+    await prisma.crateRequest.delete({
+      where: { id }
+    });
+    
+    emitToAll('crateRequestDeleted', { gameId: request.gameId, requestId: id });
+    
+    res.json({ message: "Demande supprimée" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression de la demande:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ========== ROUTES POUR LES DEMANDES DE VÉHICULES ==========
+
+// Récupérer les demandes de véhicules pour une partie
+app.get("/api/games/:id/vehicle-requests", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.query;
+    
+    const where = { gameId: id };
+    if (status) {
+      where.status = status;
+    }
+    
+    const requests = await prisma.vehicleRequest.findMany({
+      where,
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json(requests);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des demandes de véhicules:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Créer une demande de véhicule
+app.post("/api/games/:id/vehicle-requests", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { vehicleName, maxCrates, reason } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+    
+    if (!vehicleName || !vehicleName.trim()) {
+      return res.status(400).json({ error: "Le nom du véhicule est requis" });
+    }
+    
+    const request = await prisma.vehicleRequest.create({
+      data: {
+        vehicleName: vehicleName.trim(),
+        maxCrates: maxCrates || 1,
+        reason: reason || null,
+        username: user.username,
+        gameId: id
+      }
+    });
+    
+    emitToAll('vehicleRequestCreated', { gameId: id, request });
+    
+    res.status(201).json(request);
+  } catch (error) {
+    console.error("Erreur lors de la création de la demande de véhicule:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Mettre à jour une demande de véhicule (approuver/rejeter - MJ seulement)
+app.put("/api/vehicle-requests/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent traiter les demandes" });
+    }
+    
+    const existingRequest = await prisma.vehicleRequest.findUnique({
+      where: { id }
+    });
+    
+    if (!existingRequest) {
+      return res.status(404).json({ error: "Demande non trouvée" });
+    }
+    
+    // Si la demande est approuvée, créer le véhicule
+    if (status === 'approved') {
+      // Créer le véhicule
+      const vehicle = await prisma.vehicle.create({
+        data: {
+          name: existingRequest.vehicleName,
+          maxCrates: existingRequest.maxCrates,
+          crates: JSON.stringify([]),
+          gameId: existingRequest.gameId
+        }
+      });
+      
+      // Émettre l'événement de création de véhicule
+      emitToAll('vehicleCreated', { 
+        gameId: existingRequest.gameId, 
+        vehicle: {
+          ...vehicle,
+          crates: []
+        }
+      });
+    }
+    
+    // Mettre à jour le statut de la demande
+    const request = await prisma.vehicleRequest.update({
+      where: { id },
+      data: { status }
+    });
+    
+    emitToAll('vehicleRequestUpdated', { gameId: request.gameId, request });
+    
+    res.json(request);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de la demande de véhicule:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Supprimer une demande de véhicule (MJ seulement)
+app.delete("/api/vehicle-requests/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent supprimer les demandes" });
+    }
+    
+    const request = await prisma.vehicleRequest.findUnique({
+      where: { id }
+    });
+    
+    if (!request) {
+      return res.status(404).json({ error: "Demande non trouvée" });
+    }
+    
+    await prisma.vehicleRequest.delete({
+      where: { id }
+    });
+    
+    emitToAll('vehicleRequestDeleted', { gameId: request.gameId, requestId: id });
+    
+    res.json({ message: "Demande supprimée" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression de la demande de véhicule:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.delete("/api/vehicles/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seuls les Maîtres de Jeu peuvent supprimer des véhicules" });
+    }
+    
+    // Récupérer le véhicule pour avoir le gameId
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id }
+    });
+    
+    if (!vehicle) {
+      return res.status(404).json({ error: "Véhicule non trouvé" });
+    }
+    
+    await prisma.vehicle.delete({
+      where: { id }
+    });
+    
+    // Émettre l'événement WebSocket pour notifier tous les joueurs
+    emitToAll('vehicleDeleted', { gameId: vehicle.gameId, vehicleId: id });
+    
+    res.json({ message: "Véhicule supprimé avec succès" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression du véhicule:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // Route pour scanner les cartes disponibles
 app.get("/api/cards/available", async (req, res) => {
   try {
