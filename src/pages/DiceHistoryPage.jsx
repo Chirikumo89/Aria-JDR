@@ -169,6 +169,46 @@ export default function DiceHistoryPage() {
     return Object.entries(buckets).map(([label, count]) => ({ label, count }));
   };
 
+  // Calculer les données temporelles par séance (jour)
+  const getTimelineData = (rolls, diceType = null) => {
+    // Filtrer par type si spécifié
+    const filtered = diceType 
+      ? rolls.filter(r => r.diceType?.toLowerCase() === diceType.toLowerCase())
+      : rolls;
+    
+    if (filtered.length === 0) return [];
+
+    // Grouper par jour
+    const byDay = {};
+    filtered.forEach(roll => {
+      const date = new Date(roll.createdAt);
+      const dayKey = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      
+      if (!byDay[dayKey]) {
+        byDay[dayKey] = {
+          date: dayKey,
+          timestamp: new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime(),
+          rolls: [],
+          count: 0,
+          sum: 0
+        };
+      }
+      byDay[dayKey].rolls.push(roll);
+      byDay[dayKey].count++;
+      byDay[dayKey].sum += roll.result;
+    });
+
+    // Calculer les moyennes et trier par date
+    return Object.values(byDay)
+      .map(day => ({
+        ...day,
+        average: day.sum / day.count,
+        min: Math.min(...day.rolls.map(r => r.result)),
+        max: Math.max(...day.rolls.map(r => r.result))
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8 min-h-screen flex items-center justify-center">
@@ -466,6 +506,24 @@ export default function DiceHistoryPage() {
 
       {activeTab === 'charts' && (
         <div className="animate-fadeIn">
+          {/* Graphique temporel - Jets dans le temps */}
+          <div className="mb-8 p-6 rounded-xl bg-white/5 border border-white/10">
+            <h3 className="text-xl font-bold text-primary mb-2">Jets dans le temps (D100)</h3>
+            <p className="text-secondary text-sm mb-4">Moyenne par séance de jeu avec min/max</p>
+            <div className="h-72">
+              <TimelineChart data={getTimelineData(diceRolls, 'd100')} color="#a855f7" />
+            </div>
+          </div>
+
+          {/* Graphique temporel - Tous les dés */}
+          <div className="mb-8 p-6 rounded-xl bg-white/5 border border-white/10">
+            <h3 className="text-xl font-bold text-primary mb-2">Activité globale dans le temps</h3>
+            <p className="text-secondary text-sm mb-4">Nombre de jets par séance</p>
+            <div className="h-64">
+              <ActivityChart data={getTimelineData(diceRolls)} />
+            </div>
+          </div>
+
           {/* Distribution D100 */}
           <div className="mb-8 p-6 rounded-xl bg-white/5 border border-white/10">
             <h3 className="text-xl font-bold text-primary mb-4">Distribution des résultats D100</h3>
@@ -604,7 +662,7 @@ function PlayerBarChart({ data }) {
 
   return (
     <div className="h-full flex flex-col gap-2 justify-center">
-      {entries.map(([player, d], index) => (
+      {entries.map(([player, d]) => (
         <div key={player} className="flex items-center gap-3">
           <div className="w-24 text-sm text-white truncate text-right">{player}</div>
           <div className="flex-1 h-6 bg-white/10 rounded overflow-hidden">
@@ -619,6 +677,187 @@ function PlayerBarChart({ data }) {
           <div className="w-12 text-sm text-secondary">{d.count}</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// Composant pour le graphique temporel (moyenne par séance)
+function TimelineChart({ data, color }) {
+  if (!data || data.length === 0) {
+    return <div className="h-full flex items-center justify-center text-secondary">Pas de données</div>;
+  }
+
+  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+  const maxAvg = Math.max(...data.map(d => d.max), 100);
+  const minAvg = Math.min(...data.map(d => d.min), 0);
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Zone du graphique */}
+      <div className="flex-1 relative">
+        <svg className="w-full h-full" viewBox="0 0 600 200" preserveAspectRatio="none">
+          {/* Grille horizontale */}
+          {[0, 25, 50, 75, 100].map(val => {
+            const y = padding.top + ((maxAvg - val) / (maxAvg - minAvg)) * (200 - padding.top - padding.bottom);
+            return (
+              <g key={val}>
+                <line
+                  x1={padding.left}
+                  y1={y}
+                  x2={600 - padding.right}
+                  y2={y}
+                  stroke="rgba(255,255,255,0.1)"
+                  strokeDasharray="4,4"
+                />
+                <text x={padding.left - 5} y={y + 4} fill="rgba(255,255,255,0.5)" fontSize="10" textAnchor="end">
+                  {val}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Zone min/max (aire) */}
+          <path
+            d={`
+              M ${padding.left} ${padding.top + ((maxAvg - data[0].max) / (maxAvg - minAvg)) * (200 - padding.top - padding.bottom)}
+              ${data.map((d, i) => {
+                const x = padding.left + (i / (data.length - 1 || 1)) * (600 - padding.left - padding.right);
+                const y = padding.top + ((maxAvg - d.max) / (maxAvg - minAvg)) * (200 - padding.top - padding.bottom);
+                return `L ${x} ${y}`;
+              }).join(' ')}
+              ${data.slice().reverse().map((d, i) => {
+                const x = padding.left + ((data.length - 1 - i) / (data.length - 1 || 1)) * (600 - padding.left - padding.right);
+                const y = padding.top + ((maxAvg - d.min) / (maxAvg - minAvg)) * (200 - padding.top - padding.bottom);
+                return `L ${x} ${y}`;
+              }).join(' ')}
+              Z
+            `}
+            fill={color}
+            fillOpacity="0.15"
+          />
+
+          {/* Ligne de moyenne */}
+          <path
+            d={`M ${data.map((d, i) => {
+              const x = padding.left + (i / (data.length - 1 || 1)) * (600 - padding.left - padding.right);
+              const y = padding.top + ((maxAvg - d.average) / (maxAvg - minAvg)) * (200 - padding.top - padding.bottom);
+              return `${i === 0 ? '' : 'L'} ${x} ${y}`;
+            }).join(' ')}`}
+            fill="none"
+            stroke={color}
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Points de données */}
+          {data.map((d, i) => {
+            const x = padding.left + (i / (data.length - 1 || 1)) * (600 - padding.left - padding.right);
+            const y = padding.top + ((maxAvg - d.average) / (maxAvg - minAvg)) * (200 - padding.top - padding.bottom);
+            return (
+              <g key={i}>
+                <circle
+                  cx={x}
+                  cy={y}
+                  r="6"
+                  fill={color}
+                  className="cursor-pointer hover:r-8 transition-all"
+                >
+                  <title>{`${d.date}\nMoyenne: ${d.average.toFixed(1)}\nMin: ${d.min} / Max: ${d.max}\n${d.count} jets`}</title>
+                </circle>
+                <circle cx={x} cy={y} r="3" fill="white" />
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Axe X - Dates */}
+      <div className="flex justify-between px-12 text-xs text-muted">
+        {data.length <= 7 
+          ? data.map((d, i) => <span key={i}>{d.date}</span>)
+          : <>
+              <span>{data[0].date}</span>
+              {data.length > 2 && <span>{data[Math.floor(data.length / 2)].date}</span>}
+              <span>{data[data.length - 1].date}</span>
+            </>
+        }
+      </div>
+
+      {/* Légende */}
+      <div className="flex justify-center gap-6 mt-2 text-xs">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-0.5" style={{ backgroundColor: color }}></div>
+          <span className="text-secondary">Moyenne</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-3 rounded opacity-30" style={{ backgroundColor: color }}></div>
+          <span className="text-secondary">Min/Max</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Composant pour l'activité dans le temps (nombre de jets)
+function ActivityChart({ data }) {
+  if (!data || data.length === 0) {
+    return <div className="h-full flex items-center justify-center text-secondary">Pas de données</div>;
+  }
+
+  const maxCount = Math.max(...data.map(d => d.count), 1);
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Barres */}
+      <div className="flex-1 flex items-end gap-1 px-4">
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div 
+              className="w-full rounded-t transition-all duration-300 hover:opacity-80 relative group"
+              style={{ 
+                height: `${(d.count / maxCount) * 100}%`,
+                background: `linear-gradient(180deg, #a855f7, #3b82f6)`,
+                minHeight: d.count > 0 ? '4px' : '0'
+              }}
+            >
+              {/* Tooltip */}
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 rounded text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                <div className="font-semibold">{d.date}</div>
+                <div>{d.count} jets</div>
+                <div>Moy: {d.average.toFixed(1)}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Axe X */}
+      <div className="flex justify-between px-4 mt-2 text-xs text-muted">
+        {data.length <= 7 
+          ? data.map((d, i) => (
+              <span key={i} className="flex-1 text-center truncate px-0.5">{d.date.slice(0, 5)}</span>
+            ))
+          : <>
+              <span>{data[0].date.slice(0, 5)}</span>
+              <span className="flex-1"></span>
+              <span>{data[data.length - 1].date.slice(0, 5)}</span>
+            </>
+        }
+      </div>
+
+      {/* Stats résumé */}
+      <div className="flex justify-center gap-6 mt-2 text-xs">
+        <span className="text-secondary">
+          Total: <span className="text-white font-semibold">{data.reduce((sum, d) => sum + d.count, 0)} jets</span>
+        </span>
+        <span className="text-secondary">
+          Séances: <span className="text-white font-semibold">{data.length}</span>
+        </span>
+        <span className="text-secondary">
+          Moy/séance: <span className="text-white font-semibold">{(data.reduce((sum, d) => sum + d.count, 0) / data.length).toFixed(1)}</span>
+        </span>
+      </div>
     </div>
   );
 }
