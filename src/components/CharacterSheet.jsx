@@ -90,14 +90,37 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
     }));
   };
 
-  const handleSpecialSkillChange = (index, value) => {
-    setFormData(prev => ({
-      ...prev,
-      specialSkills: {
-        ...prev.specialSkills,
-        [index]: value
-      }
-    }));
+  // Fonction pour migrer les anciennes données de compétences spéciales (string vers objet)
+  const migrateSpecialSkill = (skill) => {
+    if (typeof skill === 'string') {
+      return { name: skill, percentage: '' };
+    }
+    if (typeof skill === 'object' && skill !== null) {
+      return { name: skill.name || '', percentage: skill.percentage ?? '' };
+    }
+    return { name: '', percentage: '' };
+  };
+
+  // Récupérer une compétence spéciale avec migration automatique
+  const getSpecialSkill = (index) => {
+    const skill = formData.specialSkills[index];
+    return migrateSpecialSkill(skill);
+  };
+
+  const handleSpecialSkillChange = (index, field, value) => {
+    setFormData(prev => {
+      const currentSkill = migrateSpecialSkill(prev.specialSkills[index]);
+      return {
+        ...prev,
+        specialSkills: {
+          ...prev.specialSkills,
+          [index]: {
+            ...currentSkill,
+            [field]: value
+          }
+        }
+      };
+    });
   };
 
   // Fonction de sauvegarde pour l'auto-save (mémorisée)
@@ -469,25 +492,31 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
           <div className="p-4 bg-white/70 rounded-xl">
             <h4 className="text-sm font-bold text-green-900 mb-3">Compétences spéciales</h4>
             <div className="space-y-2">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(index => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-white/80 rounded-lg">
-                  <input
-                    type="text"
-                    value={formData.specialSkills[index] || ''}
-                    onChange={(e) => handleSpecialSkillChange(index, e.target.value)}
-                    className="flex-1 p-2 border-2 border-green-300 bg-white text-ink placeholder-ink/50 rounded-lg focus:border-green-500 transition-colors"
-                    disabled={!canEdit}
-                    placeholder={`Compétence ${index}`}
-                  />
-                  <span className="text-xs text-ink/60">/</span>
-                  <input
-                    type="number"
-                    className="w-16 p-2 border-2 border-green-300 bg-white text-ink text-center rounded-lg focus:border-green-500 transition-colors"
-                    disabled={!canEdit}
-                  />
-                  <span className="text-xs text-ink/60">%</span>
-                </div>
-              ))}
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(index => {
+                const skill = getSpecialSkill(index);
+                return (
+                  <div key={index} className="flex items-center gap-2 p-2 bg-white/80 rounded-lg">
+                    <input
+                      type="text"
+                      value={skill.name}
+                      onChange={(e) => handleSpecialSkillChange(index, 'name', e.target.value)}
+                      className="flex-1 p-2 border-2 border-green-300 bg-white text-ink placeholder-ink/50 rounded-lg focus:border-green-500 transition-colors"
+                      disabled={!canEdit}
+                      placeholder={`Compétence ${index}`}
+                    />
+                    <span className="text-xs text-ink/60">/</span>
+                    <input
+                      type="number"
+                      value={skill.percentage}
+                      onChange={(e) => handleSpecialSkillChange(index, 'percentage', e.target.value)}
+                      className="w-16 p-2 border-2 border-green-300 bg-white text-ink text-center rounded-lg focus:border-green-500 transition-colors"
+                      disabled={!canEdit}
+                      placeholder="0"
+                    />
+                    <span className="text-xs text-ink/60">%</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
