@@ -57,12 +57,14 @@ export default function DiceSelectorModal() {
 
         <div className="flex gap-4 mb-4 justify-center">
           <button
+            type="button"
             onClick={() => rollDice("d6")}
             className="bg-blue-500 text-white px-4 py-2 rounded"
           >
             D6
           </button>
           <button
+            type="button"
             onClick={() => rollDice("d100")}
             className="bg-blue-500 text-white px-4 py-2 rounded"
           >
@@ -71,7 +73,7 @@ export default function DiceSelectorModal() {
         </div>
 
         <div className="flex justify-center">
-          <button onClick={hide} className="bg-gray-600 text-white px-4 py-2 rounded">
+          <button type="button" onClick={hide} className="bg-gray-600 text-white px-4 py-2 rounded">
             Annuler
           </button>
         </div>

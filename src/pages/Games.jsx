@@ -213,6 +213,7 @@ export default function Games() {
             {/* Actions */}
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => selectGame(game)}
                 className="flex-1 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-sm rounded-xl font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/30"
               >
@@ -220,6 +221,7 @@ export default function Games() {
               </button>
               {canDeleteGame(game) && (
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteGame(game);
@@ -282,6 +284,7 @@ export default function Games() {
           {/* Onglets modernes */}
           <div className="flex gap-2 border-b border-white/10 mb-8">
             <button
+              type="button"
               onClick={() => setActiveTab('characters')}
               className={`relative px-6 py-3 font-semibold rounded-t-xl transition-all duration-300 ${
                 activeTab === 'characters'
@@ -297,6 +300,7 @@ export default function Games() {
               </span>
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('cards')}
               className={`relative px-6 py-3 font-semibold rounded-t-xl transition-all duration-300 ${
                 activeTab === 'cards'
@@ -326,6 +330,7 @@ export default function Games() {
                 {/* Vérifier si l'utilisateur peut créer un personnage et n'en a pas déjà un */}
                 {canCreateCharacter() && !characters.some(char => char.userId === user?.id) && (
                   <button
+                    type="button"
                     className="group relative px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-amber-500/30 flex items-center gap-2"
                     onClick={() => setShowCreateCharacter(true)}
                   >
@@ -395,6 +400,7 @@ export default function Games() {
                       </Link>
                       {canDeleteCharacter(character) && (
                         <button
+                          type="button"
                           onClick={() => handleDeleteCharacter(character)}
                           className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 text-red-400 hover:text-red-300 text-sm rounded-xl font-semibold transition-all duration-300"
                         >
@@ -424,12 +430,14 @@ export default function Games() {
               <h3 className="text-xl font-semibold mb-4 text-primary">Lancers de dés</h3>
               <div className="flex gap-4 mb-4">
                 <button 
+                  type="button"
                   className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors duration-200"
                   onClick={() => handleDiceRoll('d6')}
                 >
                   Lancer D6
                 </button>
                 <button 
+                  type="button"
                   className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors duration-200"
                   onClick={() => handleDiceRoll('d100')}
                 >
@@ -584,12 +592,14 @@ export default function Games() {
             </div>
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={confirmDeleteGame}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-red-500/50"
               >
                 Supprimer
               </button>
               <button
+                type="button"
                 onClick={cancelDeleteGame}
                 className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-white rounded-xl font-semibold transition-all duration-300"
               >
@@ -628,12 +638,14 @@ export default function Games() {
             </div>
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={confirmDeleteCharacter}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-red-500/50"
               >
                 Supprimer
               </button>
               <button
+                type="button"
                 onClick={cancelDeleteCharacter}
                 className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-white rounded-xl font-semibold transition-all duration-300"
               >

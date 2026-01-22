@@ -167,9 +167,10 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
     }
   };
 
-  // Mettre à jour formData quand character change
+  // Mettre à jour formData uniquement quand l'ID du character change (nouveau personnage chargé)
+  // Ne PAS se déclencher sur chaque changement de l'objet character pour éviter les re-renders en boucle
   useEffect(() => {
-    if (character) {
+    if (character?.id) {
       setFormData({
         name: String(character.name || ''),
         function: String(character.function || ''),
@@ -202,7 +203,8 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
         kings: character.kings || 0
       });
     }
-  }, [character]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [character?.id]); // Seulement quand l'ID change (nouveau personnage)
 
   return (
     <div className="character-sheet bg-parchment text-ink max-w-4xl mx-auto p-8 rounded-lg shadow-lg">

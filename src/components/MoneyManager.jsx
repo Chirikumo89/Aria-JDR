@@ -27,6 +27,11 @@ export default function MoneyManager({ currencies, onChange, disabled = false, c
   const [paymentCurrency, setPaymentCurrency] = useState(CURRENCY_TYPES.KINGS);
   const [paymentDescription, setPaymentDescription] = useState('');
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  
+  // États pour les revenus (transactions positives)
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [incomeCurrency, setIncomeCurrency] = useState(CURRENCY_TYPES.KINGS);
+  const [incomeDescription, setIncomeDescription] = useState('');
 
   // Charger les transactions depuis la base de données
   useEffect(() => {
@@ -136,6 +141,56 @@ export default function MoneyManager({ currencies, onChange, disabled = false, c
     }
   };
 
+  // Fonction pour recevoir un revenu (transaction positive)
+  const handleIncome = async () => {
+    const amount = parseInt(incomeAmount) || 0;
+    if (amount <= 0) return;
+
+    try {
+      // Ajouter l'argent aux monnaies existantes
+      const newCurrencies = { ...currencies };
+      newCurrencies[incomeCurrency] = (newCurrencies[incomeCurrency] || 0) + amount;
+      
+      // Optimiser les monnaies
+      const optimized = optimizeCurrencies(newCurrencies);
+      onChange(optimized);
+      
+      // Sauvegarder la transaction en base de données
+      if (characterId) {
+        const transactionData = {
+          type: 'income',
+          amount: amount,
+          currency: incomeCurrency,
+          description: incomeDescription || 'Revenu'
+        };
+        
+        const savedTransaction = await apiService.createTransaction(characterId, transactionData);
+        
+        // Ajouter à l'historique local
+        setTransactionHistory(prev => [savedTransaction, ...prev]);
+      } else {
+        // Fallback pour les cas sans characterId (mode local)
+        const transaction = {
+          id: Date.now(),
+          type: 'income',
+          amount: amount,
+          currency: incomeCurrency,
+          description: incomeDescription || 'Revenu',
+          createdAt: new Date()
+        };
+        
+        setTransactionHistory(prev => [transaction, ...prev]);
+      }
+      
+      // Reset du formulaire de revenu
+      setIncomeAmount('');
+      setIncomeDescription('');
+      
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout du revenu:', error);
+      alert(error.message || 'Erreur lors de l\'ajout du revenu');
+    }
+  };
 
   const totalInKings = getTotalInKings(currencies);
 
@@ -186,6 +241,7 @@ export default function MoneyManager({ currencies, onChange, disabled = false, c
       {/* Boutons d'action */}
       <div className="flex gap-2 flex-wrap">
         <button
+          type="button"
           onClick={handleOptimize}
           disabled={disabled}
           className="px-3 py-1 bg-ink text-parchment rounded text-sm hover:bg-ink/80 disabled:opacity-50"
@@ -193,6 +249,7 @@ export default function MoneyManager({ currencies, onChange, disabled = false, c
           🔄 Optimiser
         </button>
         <button
+          type="button"
           onClick={() => setShowConverter(!showConverter)}
           disabled={disabled}
           className="px-3 py-1 bg-ink text-parchment rounded text-sm hover:bg-ink/80 disabled:opacity-50"
@@ -200,6 +257,7 @@ export default function MoneyManager({ currencies, onChange, disabled = false, c
           🔀 Convertir
         </button>
         <button
+          type="button"
           onClick={() => setShowTransactions(!showTransactions)}
           disabled={disabled}
           className="px-3 py-1 bg-ink text-parchment rounded text-sm hover:bg-ink/80 disabled:opacity-50"
@@ -283,6 +341,7 @@ export default function MoneyManager({ currencies, onChange, disabled = false, c
             </div>
             
             <button
+              type="button"
               onClick={handleConversion}
               disabled={disabled || !conversionAmount || conversionFrom === conversionTo || (currencies[conversionFrom] || 0) < (parseInt(conversionAmount) || 0)}
               className="px-4 py-2 bg-ink text-parchment rounded hover:bg-ink/80 disabled:opacity-50"
@@ -298,65 +357,131 @@ export default function MoneyManager({ currencies, onChange, disabled = false, c
         <div className="p-4 border-2 border-ink rounded bg-parchment/50">
           <h4 className="text-md font-bold text-ink mb-3">💳 Transactions</h4>
           
-          {/* Formulaire de paiement */}
-          <div className="mb-4 p-3 border border-ink/30 rounded bg-parchment/30">
-            <h5 className="text-sm font-bold text-ink mb-2">Effectuer un paiement</h5>
-            <div className="grid grid-cols-3 gap-2 items-end">
-              <div>
-                <label className="block text-xs font-medium text-ink mb-1">Montant</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="w-full p-2 border-2 border-ink bg-transparent text-ink text-center rounded text-sm"
-                  placeholder="0"
-                  disabled={disabled}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-ink mb-1">Monnaie</label>
-                <select
-                  value={paymentCurrency}
-                  onChange={(e) => setPaymentCurrency(e.target.value)}
-                  className="w-full p-2 border-2 border-ink bg-parchment text-ink rounded text-sm"
-                  disabled={disabled}
-                >
-                  {Object.keys(CURRENCY_TYPES).map(key => {
-                    const currency = CURRENCY_TYPES[key];
-                    const symbol = CURRENCY_SYMBOLS[currency];
-                    const name = CURRENCY_NAMES[currency];
-                    return (
-                      <option key={currency} value={currency}>
-                        {symbol} {name}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-              
-              <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Formulaire de paiement (dépense) */}
+            <div className="p-3 border border-red-300 rounded bg-red-50/30">
+              <h5 className="text-sm font-bold text-red-700 mb-2">💸 Effectuer un paiement</h5>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-ink mb-1">Montant</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      className="w-full p-2 border-2 border-ink bg-transparent text-ink text-center rounded text-sm"
+                      placeholder="0"
+                      disabled={disabled}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-ink mb-1">Monnaie</label>
+                    <select
+                      value={paymentCurrency}
+                      onChange={(e) => setPaymentCurrency(e.target.value)}
+                      className="w-full p-2 border-2 border-ink bg-parchment text-ink rounded text-sm"
+                      disabled={disabled}
+                    >
+                      {Object.keys(CURRENCY_TYPES).map(key => {
+                        const currency = CURRENCY_TYPES[key];
+                        const symbol = CURRENCY_SYMBOLS[currency];
+                        const name = CURRENCY_NAMES[currency];
+                        return (
+                          <option key={currency} value={currency}>
+                            {symbol} {name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Description (optionnel)</label>
+                  <input
+                    type="text"
+                    value={paymentDescription}
+                    onChange={(e) => setPaymentDescription(e.target.value)}
+                    className="w-full p-2 border-2 border-ink bg-transparent text-ink rounded text-sm"
+                    placeholder="Ex: Achat d'armure..."
+                    disabled={disabled}
+                  />
+                </div>
+                
                 <button
+                  type="button"
                   onClick={handlePayment}
                   disabled={disabled || !paymentAmount || parseInt(paymentAmount) <= 0 || !canAfford(currencies, { [paymentCurrency]: parseInt(paymentAmount) || 0 })}
                   className="w-full px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
                 >
-                  Payer
+                  💸 Payer
                 </button>
               </div>
             </div>
             
-            <div className="mt-2">
-              <label className="block text-xs font-medium text-ink mb-1">Description (optionnel)</label>
-              <input
-                type="text"
-                value={paymentDescription}
-                onChange={(e) => setPaymentDescription(e.target.value)}
-                className="w-full p-2 border-2 border-ink bg-transparent text-ink rounded text-sm"
-                placeholder="Ex: Achat d'armure, Repas au tavern..."
-                disabled={disabled}
-              />
+            {/* Formulaire de revenu (gain) */}
+            <div className="p-3 border border-green-300 rounded bg-green-50/30">
+              <h5 className="text-sm font-bold text-green-700 mb-2">💰 Recevoir un revenu</h5>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-ink mb-1">Montant</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={incomeAmount}
+                      onChange={(e) => setIncomeAmount(e.target.value)}
+                      className="w-full p-2 border-2 border-ink bg-transparent text-ink text-center rounded text-sm"
+                      placeholder="0"
+                      disabled={disabled}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-ink mb-1">Monnaie</label>
+                    <select
+                      value={incomeCurrency}
+                      onChange={(e) => setIncomeCurrency(e.target.value)}
+                      className="w-full p-2 border-2 border-ink bg-parchment text-ink rounded text-sm"
+                      disabled={disabled}
+                    >
+                      {Object.keys(CURRENCY_TYPES).map(key => {
+                        const currency = CURRENCY_TYPES[key];
+                        const symbol = CURRENCY_SYMBOLS[currency];
+                        const name = CURRENCY_NAMES[currency];
+                        return (
+                          <option key={currency} value={currency}>
+                            {symbol} {name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Description (optionnel)</label>
+                  <input
+                    type="text"
+                    value={incomeDescription}
+                    onChange={(e) => setIncomeDescription(e.target.value)}
+                    className="w-full p-2 border-2 border-ink bg-transparent text-ink rounded text-sm"
+                    placeholder="Ex: Récompense de quête..."
+                    disabled={disabled}
+                  />
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={handleIncome}
+                  disabled={disabled || !incomeAmount || parseInt(incomeAmount) <= 0}
+                  className="w-full px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                >
+                  💰 Recevoir
+                </button>
+              </div>
             </div>
           </div>
           
@@ -369,23 +494,29 @@ export default function MoneyManager({ currencies, onChange, disabled = false, c
               <p className="text-sm text-ink/70 italic">Aucune transaction enregistrée</p>
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {transactionHistory.map(transaction => (
-                  <div key={transaction.id} className="p-2 border border-ink/30 rounded text-sm bg-parchment/30">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="font-medium text-ink">
-                          💸 {transaction.description}
-                        </div>
-                        <div className="text-xs text-ink/70">
-                          {transaction.amount} {CURRENCY_SYMBOLS[transaction.currency]} {CURRENCY_NAMES[transaction.currency]}
-                        </div>
-                        <div className="text-xs text-ink/50">
-                          {new Date(transaction.createdAt).toLocaleString('fr-FR')}
+                {transactionHistory.map(transaction => {
+                  const isIncome = transaction.type === 'income';
+                  return (
+                    <div 
+                      key={transaction.id} 
+                      className={`p-2 border rounded text-sm ${isIncome ? 'border-green-300 bg-green-50/30' : 'border-red-300 bg-red-50/30'}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className={`font-medium ${isIncome ? 'text-green-700' : 'text-red-700'}`}>
+                            {isIncome ? '💰' : '💸'} {transaction.description}
+                          </div>
+                          <div className="text-xs text-ink/70">
+                            {isIncome ? '+' : '-'}{transaction.amount} {CURRENCY_SYMBOLS[transaction.currency]} {CURRENCY_NAMES[transaction.currency]}
+                          </div>
+                          <div className="text-xs text-ink/50">
+                            {new Date(transaction.createdAt).toLocaleString('fr-FR')}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

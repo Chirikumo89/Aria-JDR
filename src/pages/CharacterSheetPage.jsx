@@ -17,22 +17,14 @@ export default function CharacterSheetPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Charger le personnage uniquement au montage ou quand l'ID change
+  // Ne PAS dépendre de `characters` pour éviter les re-renders en boucle après sauvegarde
   useEffect(() => {
     const loadCharacter = async () => {
       try {
         setLoading(true);
         
-        // D'abord, essayer de trouver le personnage dans le contexte
-        if (characters.length > 0) {
-          const foundCharacter = characters.find(c => c.id === characterId);
-          if (foundCharacter) {
-            setCharacter(foundCharacter);
-            setLoading(false);
-            return;
-          }
-        }
-        
-        // Si pas trouvé dans le contexte, charger depuis l'API
+        // Charger depuis l'API
         const characterData = await apiService.getCharacter(characterId);
         setCharacter(characterData);
       } catch (error) {
@@ -46,7 +38,7 @@ export default function CharacterSheetPage() {
     if (characterId) {
       loadCharacter();
     }
-  }, [characterId, characters, navigate]);
+  }, [characterId, navigate]);
 
   const handleSave = async (formData) => {
     if (!character) return;
@@ -93,18 +85,15 @@ export default function CharacterSheetPage() {
       console.log('📤 CharacterSheetPage: Sending characterData to API:', characterData);
       console.log('📤 CharacterSheetPage: currentLifePoints being sent:', characterData.currentLifePoints);
 
-      // Mettre à jour le personnage
-      await updateCharacter(character.id, characterData);
+      // Sauvegarder directement via l'API sans passer par le contexte
+      // pour éviter les re-renders en cascade
+      await apiService.updateCharacter(character.id, characterData);
       
-      // Mettre à jour l'état local
-      setCharacter(prev => ({
-        ...prev,
-        ...characterData
-      }));
+      // Ne PAS mettre à jour l'état local ici pour éviter les re-renders
+      // Le formulaire a déjà les données à jour (c'est lui qui les a envoyées)
 
-      if (window.notificationSystem) {
-        window.notificationSystem.success('Personnage sauvegardé avec succès !');
-      }
+      // Notification silencieuse pour l'auto-save (pas de popup)
+      console.log('✅ Auto-save successful for character:', character?.name);
     } catch (error) {
       console.error('Erreur lors de la sauvegarde:', error);
       if (window.notificationSystem) {
