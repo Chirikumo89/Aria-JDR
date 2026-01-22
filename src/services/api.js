@@ -149,6 +149,20 @@ class ApiService {
     return response.json();
   }
 
+  // Récupérer TOUS les jets de dés récents (toutes parties confondues)
+  async getRecentDiceRolls(limit = 20) {
+    const response = await fetch(`${API_BASE_URL}/dice-rolls/recent?limit=${limit}`);
+    if (!response.ok) throw new Error('Erreur lors de la récupération des lancers de dés récents');
+    return response.json();
+  }
+
+  // Récupérer les statistiques des jets de dés
+  async getDiceStats() {
+    const response = await fetch(`${API_BASE_URL}/dice-rolls/stats`);
+    if (!response.ok) throw new Error('Erreur lors de la récupération des statistiques');
+    return response.json();
+  }
+
   // Cartes
   async getCards(gameId) {
     const response = await fetch(`${API_BASE_URL}/games/${gameId}/cards`);

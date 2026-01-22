@@ -33,7 +33,7 @@ export default function Games() {
   const [newCharacter, setNewCharacter] = useState({
     name: ''
   });
-  const [activeTab, setActiveTab] = useState('characters'); // 'characters', 'cards', ou 'treasury'
+  const [activeTab, setActiveTab] = useState('characters'); // 'characters', 'cards', 'diceHistory' ou 'treasury'
 
   const handleCreateGame = async (e) => {
     e.preventDefault();

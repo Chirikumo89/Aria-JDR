@@ -1,9 +1,13 @@
 import { useDiceModal } from "../../context/DiceModalContext";
 import { useSocket } from "../../context/SocketContext";
+import { useAuth } from "../../context/AuthContext";
+import { useGame } from "../../context/GameContext";
 
 export default function DiceSelectorModal() {
   const { open, hide } = useDiceModal();
   const socket = useSocket();
+  const { user } = useAuth();
+  const { currentGame, characters } = useGame();
 
   console.log("[DiceSelectorModal] Render, open:", open);
 
@@ -24,10 +28,25 @@ export default function DiceSelectorModal() {
       return;
     }
     
-    const player = localStorage.getItem("aria-jdr:user") || "MJ";
+    const player = user?.username || localStorage.getItem("aria-jdr:user") || "MJ";
+    
+    // Trouver le personnage de l'utilisateur actuel dans la partie
+    const userCharacter = characters?.find(char => char.userId === user?.id);
+    
     console.log(`[DiceSelectorModal] Envoi de dice:roll - Type: ${type}, Player: ${player}`);
+    console.log(`[DiceSelectorModal] GameId: ${currentGame?.id}, CharacterId: ${userCharacter?.id}, UserId: ${user?.id}`);
 
-    socket.emit("dice:roll", { type, player });
+    // Utiliser l'ID de session global pour identifier le lanceur
+    const sessionId = window.diceSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    socket.emit("dice:roll", { 
+      type, 
+      player,
+      sessionId,
+      gameId: currentGame?.id || null,
+      characterId: userCharacter?.id || null,
+      userId: user?.id || null
+    });
     hide();
   };
 

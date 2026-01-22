@@ -4,9 +4,11 @@ import Home from "./pages/Home";
 import Games from "./pages/Games";
 import CharacterSheetPage from "./pages/CharacterSheetPage";
 import MJDashboard from "./pages/MJDashboard";
+import DiceHistoryPage from "./pages/DiceHistoryPage";
 import DiceBox3D from "./components/Dice/DiceBox3D";
 import DiceSelector3D from "./components/Dice/DiceSelector3D";
 import DiceBoxTest from "./components/Dice/DiceBoxTest";
+import DiceHistoryWidget from "./components/Dice/DiceHistoryWidget";
 import Notification from "./components/Notification";
 import NotificationSystem from "./components/NotificationSystem";
 import { SocketProvider, useSocket } from "./context/SocketContext";
@@ -22,11 +24,16 @@ function AppContent() {
   return (
     <>
       <Navbar />
+      
+      {/* Widget historique des dés - affiché en permanence en haut à droite */}
+      <DiceHistoryWidget />
+      
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/games" element={<Games />} />
         <Route path="/character/:characterId" element={<CharacterSheetPage />} />
         <Route path="/mj/:gameId" element={<MJDashboard />} />
+        <Route path="/dice-history" element={<DiceHistoryPage />} />
       </Routes>
 
       {/* Système 3D DiceBox obligatoire */}

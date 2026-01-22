@@ -559,6 +559,121 @@ app.get("/api/games/:id/dice-rolls", async (req, res) => {
   }
 });
 
+// Route pour récupérer TOUS les jets de dés récents (toutes parties confondues)
+app.get("/api/dice-rolls/recent", async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+    const diceRolls = await prisma.diceRoll.findMany({
+      include: {
+        character: {
+          select: { name: true, playerName: true }
+        },
+        game: {
+          select: { name: true }
+        },
+        user: {
+          select: { username: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(limit)
+    });
+    res.json(diceRolls);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des lancers de dés récents:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Route pour récupérer les statistiques des jets de dés
+app.get("/api/dice-rolls/stats", async (req, res) => {
+  try {
+    // Récupérer tous les jets
+    const allRolls = await prisma.diceRoll.findMany({
+      include: {
+        character: { select: { name: true, playerName: true } },
+        user: { select: { username: true } }
+      }
+    });
+    
+    // Date d'aujourd'hui (début de journée)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Calculer les statistiques
+    const totalRolls = allRolls.length;
+    const todayRolls = allRolls.filter(r => new Date(r.createdAt) >= today).length;
+    
+    // Moyenne générale
+    const averageResult = totalRolls > 0 
+      ? allRolls.reduce((sum, r) => sum + r.result, 0) / totalRolls 
+      : 0;
+    
+    // Stats par type de dé
+    const byDiceType = {};
+    allRolls.forEach(roll => {
+      const type = roll.diceType?.toLowerCase() || 'unknown';
+      if (!byDiceType[type]) {
+        byDiceType[type] = { count: 0, sum: 0, min: Infinity, max: -Infinity };
+      }
+      byDiceType[type].count++;
+      byDiceType[type].sum += roll.result;
+      byDiceType[type].min = Math.min(byDiceType[type].min, roll.result);
+      byDiceType[type].max = Math.max(byDiceType[type].max, roll.result);
+    });
+    
+    // Calculer les moyennes par type
+    Object.keys(byDiceType).forEach(type => {
+      byDiceType[type].average = byDiceType[type].sum / byDiceType[type].count;
+      if (byDiceType[type].min === Infinity) byDiceType[type].min = 0;
+      if (byDiceType[type].max === -Infinity) byDiceType[type].max = 0;
+    });
+    
+    // Stats par joueur
+    const byPlayer = {};
+    allRolls.forEach(roll => {
+      const playerName = roll.character?.name || roll.user?.username || roll.playerName || 'Inconnu';
+      if (!byPlayer[playerName]) {
+        byPlayer[playerName] = { count: 0, sum: 0 };
+      }
+      byPlayer[playerName].count++;
+      byPlayer[playerName].sum += roll.result;
+    });
+    
+    // Calculer les moyennes par joueur
+    Object.keys(byPlayer).forEach(player => {
+      byPlayer[player].average = byPlayer[player].sum / byPlayer[player].count;
+    });
+    
+    // Joueurs uniques
+    const uniquePlayers = Object.keys(byPlayer).length;
+    
+    // Records
+    const d100Rolls = allRolls.filter(r => r.diceType?.toLowerCase() === 'd100');
+    const records = {
+      bestD100: d100Rolls.length > 0 
+        ? d100Rolls.reduce((best, r) => r.result < best.result ? r : best)
+        : null,
+      worstD100: d100Rolls.length > 0 
+        ? d100Rolls.reduce((worst, r) => r.result > worst.result ? r : worst)
+        : null
+    };
+    
+    res.json({
+      totalRolls,
+      todayRolls,
+      averageResult,
+      uniquePlayers,
+      byDiceType,
+      byPlayer,
+      records
+    });
+  } catch (error) {
+    console.error("Erreur lors du calcul des statistiques:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // Routes pour les cartes
 app.get("/api/games/:id/cards", async (req, res) => {
   try {
@@ -1617,27 +1732,79 @@ io.on("connection", (socket) => {
   socket.on("dice:result", async (data) => {
     console.log(`[Server] 📊 dice:result reçu de ${data.player}:`, data.result);
     console.log(`[Server] 📦 Données complètes reçues:`, JSON.stringify(data, null, 2));
-    const { result, details, player, notation, type, sessionId } = data || {};
+    const { result, details, player, notation, type, sessionId, gameId, characterId, userId } = data || {};
     
     if (result === null || result === undefined || !player) {
       console.error("[Server] Données manquantes dans dice:result:", data);
       return;
     }
     
-    // Sauvegarder dans la base de données si nécessaire
-    // TODO: Récupérer gameId, characterId, userId du contexte si nécessaire
+    // TOUJOURS sauvegarder dans la base de données (gameId est maintenant optionnel)
+    let savedDiceRoll = null;
+    try {
+      // Calculer tens et units pour les d100
+      let tens = null;
+      let units = null;
+      if ((type === 'd100' || notation === 'd100') && typeof result === 'number') {
+        tens = Math.floor(result / 10);
+        units = result % 10;
+      }
+      
+      savedDiceRoll = await prisma.diceRoll.create({
+        data: {
+          diceType: type || notation || 'unknown',
+          result: result,
+          tens: tens,
+          units: units,
+          playerName: player, // Stocker le nom du joueur
+          gameId: gameId || null,
+          characterId: characterId || null,
+          userId: userId || null
+        },
+        include: {
+          character: {
+            select: { name: true, playerName: true }
+          },
+          game: {
+            select: { name: true }
+          },
+          user: {
+            select: { username: true }
+          }
+        }
+      });
+      console.log(`[Server] ✅ Jet de dé sauvegardé en base:`, savedDiceRoll.id);
+    } catch (error) {
+      console.error("[Server] ❌ Erreur lors de la sauvegarde du jet de dé:", error);
+    }
     
     // Relayer le résultat à tous les autres joueurs avec toutes les infos
     console.log(`[Server] 📤 Partage du résultat de ${player} à tous les clients:`, result);
     console.log(`[Server] 📊 Type de dé: ${notation || type || 'inconnu'}`);
-    io.emit("dice:result", { 
+    
+    const resultData = { 
       result, 
       details: details || [],
       player,
       notation,  // Ajouter la notation
       type,      // Ajouter le type
-      sessionId  // Ajouter le sessionId
-    });
+      sessionId,  // Ajouter le sessionId
+      gameId,
+      savedRoll: savedDiceRoll  // Inclure le jet sauvegardé pour la mise à jour en temps réel
+    };
+    
+    io.emit("dice:result", resultData);
+    
+    // Émettre un événement spécifique pour l'historique si sauvegardé
+    if (savedDiceRoll) {
+      io.emit("dice:history:new", { 
+        gameId, 
+        diceRoll: {
+          ...savedDiceRoll,
+          player  // Ajouter le nom du joueur pour l'affichage
+        }
+      });
+    }
   });
 
   // Relayer les frames du canvas pour le streaming vidéo

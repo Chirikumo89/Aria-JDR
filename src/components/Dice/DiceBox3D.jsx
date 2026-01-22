@@ -8,6 +8,11 @@ if (!window.diceSessionId) {
   console.log("[GLOBAL] 🆔 ID de session window créé:", window.diceSessionId);
 }
 
+// Variables globales pour stocker les infos de jeu pendant le lancer
+let tempGameId = null;
+let tempCharacterId = null;
+let tempUserId = null;
+
 export default function DiceBox3D() {
   const diceBoxRef = useRef(null);
   const diceBoxInstance = useRef(null);
@@ -228,13 +233,18 @@ export default function DiceBox3D() {
             if (socketRef.current && socketRef.current.connected) {
               console.log("[DiceBox3D] 📤 Envoi du résultat au serveur:", total);
               console.log("[DiceBox3D] 🆔 Avec sessionId:", sessionIdRef.current);
+              console.log("[DiceBox3D] 🎮 Avec infos jeu:", { tempGameId, tempCharacterId, tempUserId });
               const dataToSend = { 
                 result: total, 
                 details: results,
                 player: playerName,
                 sessionId: sessionIdRef.current,
                 notation: notation,
-                type: diceType
+                type: diceType,
+                // Informations pour la sauvegarde en base de données
+                gameId: tempGameId,
+                characterId: tempCharacterId,
+                userId: tempUserId
               };
               console.log("[DiceBox3D] 📦 Données envoyées au serveur:", JSON.stringify(dataToSend, null, 2));
               socketRef.current.emit("dice:result", dataToSend);
@@ -349,6 +359,12 @@ export default function DiceBox3D() {
       currentNotationRef.current = data.notation; // Stocker la notation
       currentTypeRef.current = data.type; // Stocker le type
       
+      // Stocker les informations de jeu pour la sauvegarde en base de données
+      tempGameId = data.gameId || null;
+      tempCharacterId = data.characterId || null;
+      tempUserId = data.userId || null;
+      console.log("[DiceBox3D] 🎮 Infos de jeu stockées:", { tempGameId, tempCharacterId, tempUserId });
+      
       // S'assurer que rollPlayer est bien défini pour les callbacks
       console.log("[DiceBox3D] 👤 RollPlayer défini à:", data.player);
       console.log("[DiceBox3D] 🎲 Notation du dé:", data.notation);
@@ -454,7 +470,11 @@ export default function DiceBox3D() {
                       player: playerName,
                       sessionId: sessionIdRef.current,
                       notation: notation,
-                      type: diceType
+                      type: diceType,
+                      // Informations pour la sauvegarde en base de données
+                      gameId: tempGameId,
+                      characterId: tempCharacterId,
+                      userId: tempUserId
                     };
                     console.log("[DiceBox3D] 📦 Données envoyées au serveur (recréation):", JSON.stringify(dataToSend, null, 2));
                     socketRef.current.emit("dice:result", dataToSend);

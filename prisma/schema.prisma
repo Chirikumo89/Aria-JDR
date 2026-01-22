@@ -132,11 +132,12 @@ model DiceRoll {
   result    Int
   tens      Int?     // Pour les d100
   units     Int?     // Pour les d100
+  playerName String?  // Nom du joueur qui a lancé le dé
   createdAt DateTime @default(now())
   
-  // Relations
-  gameId      String
-  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  // Relations (toutes optionnelles pour permettre les jets "libres")
+  gameId      String?
+  game        Game?     @relation(fields: [gameId], references: [id], onDelete: Cascade)
   characterId String?
   character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
   userId      String?
