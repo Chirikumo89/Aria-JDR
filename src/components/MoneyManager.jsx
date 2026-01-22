@@ -495,16 +495,44 @@ export default function MoneyManager({ currencies, onChange, disabled = false, c
             ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {transactionHistory.map(transaction => {
-                  const isIncome = transaction.type === 'income';
+                  const isIncome = transaction.type === 'income' || transaction.type === 'transfer_in';
+                  const isTransfer = transaction.type === 'transfer_in' || transaction.type === 'transfer_out';
+                  
+                  // Déterminer les couleurs et icônes selon le type
+                  let borderColor, bgColor, textColor, icon;
+                  if (isTransfer) {
+                    if (isIncome) {
+                      borderColor = 'border-blue-300';
+                      bgColor = 'bg-blue-50/30';
+                      textColor = 'text-blue-700';
+                      icon = '📥';
+                    } else {
+                      borderColor = 'border-purple-300';
+                      bgColor = 'bg-purple-50/30';
+                      textColor = 'text-purple-700';
+                      icon = '📤';
+                    }
+                  } else if (isIncome) {
+                    borderColor = 'border-green-300';
+                    bgColor = 'bg-green-50/30';
+                    textColor = 'text-green-700';
+                    icon = '💰';
+                  } else {
+                    borderColor = 'border-red-300';
+                    bgColor = 'bg-red-50/30';
+                    textColor = 'text-red-700';
+                    icon = '💸';
+                  }
+                  
                   return (
                     <div 
                       key={transaction.id} 
-                      className={`p-2 border rounded text-sm ${isIncome ? 'border-green-300 bg-green-50/30' : 'border-red-300 bg-red-50/30'}`}
+                      className={`p-2 border rounded text-sm ${borderColor} ${bgColor}`}
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <div className={`font-medium ${isIncome ? 'text-green-700' : 'text-red-700'}`}>
-                            {isIncome ? '💰' : '💸'} {transaction.description}
+                          <div className={`font-medium ${textColor}`}>
+                            {icon} {transaction.description}
                           </div>
                           <div className="text-xs text-ink/70">
                             {isIncome ? '+' : '-'}{transaction.amount} {CURRENCY_SYMBOLS[transaction.currency]} {CURRENCY_NAMES[transaction.currency]}

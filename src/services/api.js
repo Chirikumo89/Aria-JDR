@@ -452,6 +452,65 @@ class ApiService {
     }
     return response.json();
   }
+
+  // Transferts d'items
+  async getPendingTransfers(characterId) {
+    const response = await fetch(`${API_BASE_URL}/characters/${characterId}/item-transfers/pending`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération des transferts');
+    }
+    return response.json();
+  }
+
+  async getAllTransfers(characterId) {
+    const response = await fetch(`${API_BASE_URL}/characters/${characterId}/item-transfers`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération des transferts');
+    }
+    return response.json();
+  }
+
+  async createItemTransfer(data) {
+    // data peut contenir: itemId, itemText, fromCharacterId, toCharacterId, gameId
+    // Et pour les échanges: isExchange, requestedItemId, requestedItemText
+    const response = await fetch(`${API_BASE_URL}/item-transfers`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la création du transfert');
+    }
+    return response.json();
+  }
+
+  async respondToTransfer(transferId, status) {
+    const response = await fetch(`${API_BASE_URL}/item-transfers/${transferId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ status })
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la réponse au transfert');
+    }
+    return response.json();
+  }
+
+  async cancelTransfer(transferId) {
+    const response = await fetch(`${API_BASE_URL}/item-transfers/${transferId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de l\'annulation du transfert');
+    }
+    return response.json();
+  }
 }
 
 export const apiService = new ApiService();

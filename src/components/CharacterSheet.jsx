@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { usePermissions } from '../hooks/usePermissions';
+import { useGame } from '../context/GameContext';
+import { useSocket } from '../context/SocketContext';
 import Checklist from './Checklist';
 import TextareaChecklist from './TextareaChecklist';
 import CharacterCards from './Cards/CharacterCards';
@@ -8,6 +10,8 @@ import MoneyManager from './MoneyManager';
 import LifePointsManager from './LifePointsManager';
 import CommonTreasury from './CommonTreasury';
 import VehicleInventory from './VehicleInventory';
+import PendingTransfers from './PendingTransfers';
+import ItemTransferModal from './ItemTransferModal';
 import { migrateChecklistData } from '../utils/migrateChecklistData';
 
 const SKILLS = [
@@ -35,6 +39,13 @@ const SKILLS = [
 
 export default function CharacterSheet({ character, onSave, isEditable = true }) {
   const { canEditCharacter, canViewCharacter } = usePermissions();
+  const { characters } = useGame();
+  const socket = useSocket();
+  
+  // État pour la modal de transfert
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [itemToTransfer, setItemToTransfer] = useState(null);
+  const [preselectedCharacter, setPreselectedCharacter] = useState(null);
 
 
   const [formData, setFormData] = useState(() => ({
@@ -72,6 +83,52 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
   // Vérifier les permissions
   const canEdit = isEditable && canEditCharacter(character);
   const canView = canViewCharacter(character);
+
+  // Fonction pour ouvrir la modal de transfert
+  const handleTransferItem = (item, targetCharacter = null) => {
+    setItemToTransfer(item);
+    setPreselectedCharacter(targetCharacter);
+    setShowTransferModal(true);
+  };
+
+  // Fonction appelée quand un transfert est créé ou reçu
+  const handleTransferHandled = () => {
+    // Les mises à jour sont gérées automatiquement via WebSocket
+    // Pas besoin de forcer une sauvegarde car le serveur met à jour les deux personnages
+    console.log('Transfert traité - mise à jour via WebSocket');
+  };
+
+  // Écouter les mises à jour de personnage via WebSocket
+  useEffect(() => {
+    if (!socket || !character?.id) return;
+
+    const handleCharacterUpdated = (updatedCharacter) => {
+      if (updatedCharacter.id === character.id) {
+        // Mettre à jour les possessions si elles ont changé
+        const newPossessions = updatedCharacter.possessions 
+          ? (typeof updatedCharacter.possessions === 'string' 
+              ? JSON.parse(updatedCharacter.possessions) 
+              : updatedCharacter.possessions)
+          : [];
+        
+        setFormData(prev => ({
+          ...prev,
+          possessions: migrateChecklistData(newPossessions),
+          // Mettre à jour l'argent aussi
+          crowns: updatedCharacter.crowns ?? prev.crowns,
+          orbs: updatedCharacter.orbs ?? prev.orbs,
+          scepters: updatedCharacter.scepters ?? prev.scepters,
+          kings: updatedCharacter.kings ?? prev.kings
+        }));
+      }
+    };
+
+    socket.on('characterUpdated', handleCharacterUpdated);
+
+    return () => {
+      socket.off('characterUpdated', handleCharacterUpdated);
+    };
+  }, [socket, character?.id]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -524,6 +581,20 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
         </div>
       </div>
 
+      {/* Transferts en attente */}
+      {character?.id && (
+        <PendingTransfers 
+          characterId={character.id}
+          characterMoney={{
+            crowns: formData.crowns || 0,
+            orbs: formData.orbs || 0,
+            scepters: formData.scepters || 0,
+            kings: formData.kings || 0
+          }}
+          onTransferHandled={handleTransferHandled}
+        />
+      )}
+
       {/* Possessions et notes */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="p-6 rounded-2xl bg-gradient-to-br from-orange-50/80 to-orange-100/60 border-2 border-orange-200/50 shadow-md">
@@ -533,6 +604,14 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
             </svg>
             Possessions
           </h3>
+          {canEdit && characters && characters.length > 1 && (
+            <p className="text-xs text-orange-700/70 mb-3 flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+              </svg>
+              Clic droit sur un item pour le transférer ou le supprimer
+            </p>
+          )}
           <div className="bg-white/70 rounded-xl p-4">
             <Checklist
               items={formData.possessions}
@@ -540,6 +619,9 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
               placeholder="Ajouter une possession..."
               disabled={!canEdit}
               className="min-h-32"
+              enableTransfer={canEdit && characters && characters.length > 1}
+              onTransferItem={handleTransferItem}
+              availableCharacters={characters?.filter(c => c.id !== character?.id) || []}
             />
           </div>
         </div>
@@ -694,6 +776,28 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
           </div>
         </div>
       )}
+
+      {/* Modal de transfert d'item */}
+      <ItemTransferModal
+        isOpen={showTransferModal}
+        onClose={() => {
+          setShowTransferModal(false);
+          setItemToTransfer(null);
+          setPreselectedCharacter(null);
+        }}
+        item={itemToTransfer}
+        fromCharacterId={character?.id}
+        gameId={character?.gameId || character?.game?.id}
+        characters={characters}
+        onTransferCreated={handleTransferHandled}
+        preselectedCharacterId={preselectedCharacter?.id}
+        fromCharacterMoney={{
+          crowns: formData.crowns || 0,
+          orbs: formData.orbs || 0,
+          scepters: formData.scepters || 0,
+          kings: formData.kings || 0
+        }}
+      />
     </div>
   );
 }

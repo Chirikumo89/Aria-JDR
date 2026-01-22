@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,12 +10,15 @@ import CrateRequestsPanel from '../components/CrateRequestsPanel';
 export default function CharacterSheetPage() {
   const { characterId } = useParams();
   const navigate = useNavigate();
-  const { characters, updateCharacter } = useGame();
+  const { characters, updateCharacter, loadCharacters } = useGame();
   const { user } = useAuth();
   const { canViewCharacter, canEditCharacter } = usePermissions();
   const [character, setCharacter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Référence pour éviter les appels multiples
+  const hasLoadedCharactersRef = useRef(false);
 
   // Charger le personnage uniquement au montage ou quand l'ID change
   // Ne PAS dépendre de `characters` pour éviter les re-renders en boucle après sauvegarde
@@ -27,6 +30,12 @@ export default function CharacterSheetPage() {
         // Charger depuis l'API
         const characterData = await apiService.getCharacter(characterId);
         setCharacter(characterData);
+        
+        // Charger aussi les autres personnages de la partie pour les transferts (une seule fois)
+        if (characterData.gameId && !hasLoadedCharactersRef.current) {
+          hasLoadedCharactersRef.current = true;
+          loadCharacters(characterData.gameId);
+        }
       } catch (error) {
         console.error('Erreur lors du chargement du personnage:', error);
         navigate('/games');
@@ -38,7 +47,13 @@ export default function CharacterSheetPage() {
     if (characterId) {
       loadCharacter();
     }
+    
+    // Réinitialiser le flag quand l'ID change
+    return () => {
+      hasLoadedCharactersRef.current = false;
+    };
   }, [characterId, navigate]);
+  // Note: loadCharacters est volontairement exclu des dépendances pour éviter les re-renders en boucle
 
   const handleSave = async (formData) => {
     if (!character) return;

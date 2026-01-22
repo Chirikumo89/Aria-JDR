@@ -1580,6 +1580,530 @@ app.delete("/api/vehicles/:id", async (req, res) => {
   }
 });
 
+// ========== ROUTES POUR LES TRANSFERTS D'ITEMS ==========
+
+// Récupérer les transferts en attente pour un personnage (reçus)
+app.get("/api/characters/:id/item-transfers/pending", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const transfers = await prisma.itemTransfer.findMany({
+      where: { 
+        toCharacterId: id,
+        status: 'pending'
+      },
+      include: {
+        fromCharacter: {
+          select: { id: true, name: true, playerName: true }
+        },
+        toCharacter: {
+          select: { id: true, name: true, playerName: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json(transfers);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des transferts:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Récupérer tous les transferts d'un personnage (envoyés et reçus)
+app.get("/api/characters/:id/item-transfers", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const transfers = await prisma.itemTransfer.findMany({
+      where: { 
+        OR: [
+          { fromCharacterId: id },
+          { toCharacterId: id }
+        ]
+      },
+      include: {
+        fromCharacter: {
+          select: { id: true, name: true, playerName: true }
+        },
+        toCharacter: {
+          select: { id: true, name: true, playerName: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    
+    res.json(transfers);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des transferts:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Créer une demande de transfert d'item (don ou échange)
+app.post("/api/item-transfers", async (req, res) => {
+  try {
+    const { 
+      itemId, itemText, fromCharacterId, toCharacterId, gameId, 
+      requestedItemId, requestedItemText, isExchange,
+      // Argent offert
+      offeredCrowns = 0, offeredOrbs = 0, offeredScepters = 0, offeredKings = 0,
+      // Argent demandé
+      requestedCrowns = 0, requestedOrbs = 0, requestedScepters = 0, requestedKings = 0
+    } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier qu'il y a quelque chose à transférer
+    const hasItem = itemId && itemText;
+    const hasOfferedMoney = offeredCrowns > 0 || offeredOrbs > 0 || offeredScepters > 0 || offeredKings > 0;
+    
+    if (!hasItem && !hasOfferedMoney) {
+      return res.status(400).json({ error: "Aucun item ou argent à transférer" });
+    }
+    
+    // Vérifier que l'utilisateur est propriétaire du personnage source
+    const fromCharacter = await prisma.character.findUnique({
+      where: { id: fromCharacterId }
+    });
+    
+    if (!fromCharacter) {
+      return res.status(404).json({ error: "Personnage source non trouvé" });
+    }
+    
+    if (fromCharacter.userId !== userId) {
+      // Vérifier si c'est le MJ
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user || user.role !== 'mj') {
+        return res.status(403).json({ error: "Vous ne pouvez transférer que vos propres items" });
+      }
+    }
+    
+    // Vérifier que le personnage source a assez d'argent
+    if (offeredCrowns > (fromCharacter.crowns || 0) ||
+        offeredOrbs > (fromCharacter.orbs || 0) ||
+        offeredScepters > (fromCharacter.scepters || 0) ||
+        offeredKings > (fromCharacter.kings || 0)) {
+      return res.status(400).json({ error: "Vous n'avez pas assez d'argent" });
+    }
+    
+    // Vérifier que le personnage cible existe
+    const toCharacter = await prisma.character.findUnique({
+      where: { id: toCharacterId }
+    });
+    
+    if (!toCharacter) {
+      return res.status(404).json({ error: "Personnage cible non trouvé" });
+    }
+    
+    // Vérifier que les deux personnages sont dans la même partie
+    if (fromCharacter.gameId !== toCharacter.gameId) {
+      return res.status(400).json({ error: "Les personnages doivent être dans la même partie" });
+    }
+    
+    // Note: On ne vérifie pas si la cible a assez d'argent ici
+    // La vérification se fera lors de l'acceptation du transfert
+    // Cela évite de révéler les fonds d'un joueur
+    
+    // Créer le transfert (don ou échange)
+    const transfer = await prisma.itemTransfer.create({
+      data: {
+        itemId: hasItem ? itemId : null,
+        itemText: hasItem ? itemText : null,
+        fromCharacterId,
+        toCharacterId,
+        gameId: fromCharacter.gameId,
+        isExchange: isExchange || false,
+        requestedItemId: isExchange && requestedItemId ? requestedItemId : null,
+        requestedItemText: isExchange && requestedItemText ? requestedItemText : null,
+        // Argent
+        offeredCrowns: offeredCrowns || 0,
+        offeredOrbs: offeredOrbs || 0,
+        offeredScepters: offeredScepters || 0,
+        offeredKings: offeredKings || 0,
+        requestedCrowns: isExchange ? (requestedCrowns || 0) : 0,
+        requestedOrbs: isExchange ? (requestedOrbs || 0) : 0,
+        requestedScepters: isExchange ? (requestedScepters || 0) : 0,
+        requestedKings: isExchange ? (requestedKings || 0) : 0
+      },
+      include: {
+        fromCharacter: {
+          select: { id: true, name: true, playerName: true }
+        },
+        toCharacter: {
+          select: { id: true, name: true, playerName: true }
+        }
+      }
+    });
+    
+    // Émettre l'événement WebSocket
+    emitToAll('itemTransferCreated', { gameId: fromCharacter.gameId, transfer });
+    
+    res.status(201).json(transfer);
+  } catch (error) {
+    console.error("Erreur lors de la création du transfert:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Accepter ou refuser un transfert
+app.put("/api/item-transfers/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // 'accepted' ou 'rejected'
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    if (!['accepted', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: "Statut invalide" });
+    }
+    
+    // Récupérer le transfert
+    const transfer = await prisma.itemTransfer.findUnique({
+      where: { id },
+      include: {
+        fromCharacter: true,
+        toCharacter: true
+      }
+    });
+    
+    if (!transfer) {
+      return res.status(404).json({ error: "Transfert non trouvé" });
+    }
+    
+    // Vérifier que l'utilisateur est propriétaire du personnage cible (ou MJ)
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const isMJ = user && user.role === 'mj';
+    
+    if (transfer.toCharacter.userId !== userId && !isMJ) {
+      return res.status(403).json({ error: "Vous ne pouvez pas répondre à ce transfert" });
+    }
+    
+    // Si accepté, effectuer le transfert d'item et/ou d'argent (et l'échange si applicable)
+    if (status === 'accepted') {
+      // Récupérer les possessions des deux personnages
+      let fromPossessions = transfer.fromCharacter.possessions 
+        ? JSON.parse(transfer.fromCharacter.possessions) 
+        : [];
+      let toPossessions = transfer.toCharacter.possessions 
+        ? JSON.parse(transfer.toCharacter.possessions) 
+        : [];
+      
+      // Vérifier si un item est offert
+      const hasOfferedItem = transfer.itemId && transfer.itemText;
+      let itemIndex = -1;
+      
+      if (hasOfferedItem) {
+        itemIndex = fromPossessions.findIndex(item => String(item.id) === String(transfer.itemId));
+        if (itemIndex === -1) {
+          await prisma.itemTransfer.update({
+            where: { id },
+            data: { status: 'rejected' }
+          });
+          return res.status(400).json({ error: "L'item n'existe plus dans l'inventaire source" });
+        }
+      }
+      
+      // Vérifier l'argent offert
+      const hasOfferedMoney = (transfer.offeredCrowns || 0) > 0 || 
+                              (transfer.offeredOrbs || 0) > 0 || 
+                              (transfer.offeredScepters || 0) > 0 || 
+                              (transfer.offeredKings || 0) > 0;
+      
+      if (hasOfferedMoney) {
+        if ((transfer.offeredCrowns || 0) > (transfer.fromCharacter.crowns || 0) ||
+            (transfer.offeredOrbs || 0) > (transfer.fromCharacter.orbs || 0) ||
+            (transfer.offeredScepters || 0) > (transfer.fromCharacter.scepters || 0) ||
+            (transfer.offeredKings || 0) > (transfer.fromCharacter.kings || 0)) {
+          await prisma.itemTransfer.update({
+            where: { id },
+            data: { status: 'rejected' }
+          });
+          return res.status(400).json({ error: "L'expéditeur n'a plus assez d'argent" });
+        }
+      }
+      
+      // Si c'est un échange, vérifier que l'item demandé existe toujours et l'argent demandé
+      let exchangedItemIndex = -1;
+      const hasRequestedItem = transfer.isExchange && transfer.requestedItemId;
+      const hasRequestedMoney = transfer.isExchange && (
+        (transfer.requestedCrowns || 0) > 0 || 
+        (transfer.requestedOrbs || 0) > 0 || 
+        (transfer.requestedScepters || 0) > 0 || 
+        (transfer.requestedKings || 0) > 0
+      );
+      
+      if (hasRequestedItem) {
+        exchangedItemIndex = toPossessions.findIndex(item => String(item.id) === String(transfer.requestedItemId));
+        if (exchangedItemIndex === -1) {
+          await prisma.itemTransfer.update({
+            where: { id },
+            data: { status: 'rejected' }
+          });
+          return res.status(400).json({ error: "L'item demandé en échange n'existe plus" });
+        }
+      }
+      
+      if (hasRequestedMoney) {
+        if ((transfer.requestedCrowns || 0) > (transfer.toCharacter.crowns || 0) ||
+            (transfer.requestedOrbs || 0) > (transfer.toCharacter.orbs || 0) ||
+            (transfer.requestedScepters || 0) > (transfer.toCharacter.scepters || 0) ||
+            (transfer.requestedKings || 0) > (transfer.toCharacter.kings || 0)) {
+          await prisma.itemTransfer.update({
+            where: { id },
+            data: { status: 'rejected' }
+          });
+          return res.status(400).json({ error: "Vous n'avez plus assez d'argent pour cet échange" });
+        }
+      }
+      
+      // Transférer l'item offert (de source vers cible)
+      if (hasOfferedItem && itemIndex !== -1) {
+        const [transferredItem] = fromPossessions.splice(itemIndex, 1);
+        const newItemForTarget = {
+          ...transferredItem,
+          id: Date.now() + Math.random(),
+          checked: false
+        };
+        toPossessions.push(newItemForTarget);
+      }
+      
+      // Transférer l'item demandé en échange (de cible vers source)
+      if (hasRequestedItem && exchangedItemIndex !== -1) {
+        const currentExchangeIndex = toPossessions.findIndex(item => String(item.id) === String(transfer.requestedItemId));
+        if (currentExchangeIndex !== -1) {
+          const [exchangedItem] = toPossessions.splice(currentExchangeIndex, 1);
+          const newItemForSource = {
+            ...exchangedItem,
+            id: Date.now() + Math.random() + 1,
+            checked: false
+          };
+          fromPossessions.push(newItemForSource);
+        }
+      }
+      
+      // Calculer les nouveaux montants d'argent
+      const newFromMoney = {
+        crowns: (transfer.fromCharacter.crowns || 0) - (transfer.offeredCrowns || 0) + (transfer.requestedCrowns || 0),
+        orbs: (transfer.fromCharacter.orbs || 0) - (transfer.offeredOrbs || 0) + (transfer.requestedOrbs || 0),
+        scepters: (transfer.fromCharacter.scepters || 0) - (transfer.offeredScepters || 0) + (transfer.requestedScepters || 0),
+        kings: (transfer.fromCharacter.kings || 0) - (transfer.offeredKings || 0) + (transfer.requestedKings || 0)
+      };
+      
+      const newToMoney = {
+        crowns: (transfer.toCharacter.crowns || 0) + (transfer.offeredCrowns || 0) - (transfer.requestedCrowns || 0),
+        orbs: (transfer.toCharacter.orbs || 0) + (transfer.offeredOrbs || 0) - (transfer.requestedOrbs || 0),
+        scepters: (transfer.toCharacter.scepters || 0) + (transfer.offeredScepters || 0) - (transfer.requestedScepters || 0),
+        kings: (transfer.toCharacter.kings || 0) + (transfer.offeredKings || 0) - (transfer.requestedKings || 0)
+      };
+      
+      // Préparer les transactions à créer dans l'historique
+      const transactionsToCreate = [];
+      const fromCharacterName = transfer.fromCharacter.name;
+      const toCharacterName = transfer.toCharacter.name;
+      
+      // Transactions pour l'argent offert (expéditeur perd, destinataire gagne)
+      const offeredCurrencies = [
+        { key: 'crowns', amount: transfer.offeredCrowns || 0 },
+        { key: 'orbs', amount: transfer.offeredOrbs || 0 },
+        { key: 'scepters', amount: transfer.offeredScepters || 0 },
+        { key: 'kings', amount: transfer.offeredKings || 0 }
+      ].filter(c => c.amount > 0);
+      
+      for (const curr of offeredCurrencies) {
+        // Transaction de sortie pour l'expéditeur
+        transactionsToCreate.push({
+          type: 'transfer_out',
+          amount: curr.amount,
+          currency: curr.key,
+          description: `Transfert à ${toCharacterName}${transfer.itemText ? ` (avec: ${transfer.itemText})` : ''}`,
+          characterId: transfer.fromCharacterId,
+          gameId: transfer.gameId
+        });
+        // Transaction d'entrée pour le destinataire
+        transactionsToCreate.push({
+          type: 'transfer_in',
+          amount: curr.amount,
+          currency: curr.key,
+          description: `Reçu de ${fromCharacterName}${transfer.itemText ? ` (avec: ${transfer.itemText})` : ''}`,
+          characterId: transfer.toCharacterId,
+          gameId: transfer.gameId
+        });
+      }
+      
+      // Transactions pour l'argent demandé en échange (destinataire perd, expéditeur gagne)
+      if (transfer.isExchange) {
+        const requestedCurrencies = [
+          { key: 'crowns', amount: transfer.requestedCrowns || 0 },
+          { key: 'orbs', amount: transfer.requestedOrbs || 0 },
+          { key: 'scepters', amount: transfer.requestedScepters || 0 },
+          { key: 'kings', amount: transfer.requestedKings || 0 }
+        ].filter(c => c.amount > 0);
+        
+        for (const curr of requestedCurrencies) {
+          // Transaction de sortie pour le destinataire
+          transactionsToCreate.push({
+            type: 'transfer_out',
+            amount: curr.amount,
+            currency: curr.key,
+            description: `Échange avec ${fromCharacterName}${transfer.itemText ? ` (contre: ${transfer.itemText})` : ''}`,
+            characterId: transfer.toCharacterId,
+            gameId: transfer.gameId
+          });
+          // Transaction d'entrée pour l'expéditeur
+          transactionsToCreate.push({
+            type: 'transfer_in',
+            amount: curr.amount,
+            currency: curr.key,
+            description: `Échange avec ${toCharacterName}${transfer.itemText ? ` (contre: ${transfer.itemText})` : ''}`,
+            characterId: transfer.fromCharacterId,
+            gameId: transfer.gameId
+          });
+        }
+      }
+      
+      // Mettre à jour les deux personnages et créer les transactions dans une transaction DB
+      await prisma.$transaction([
+        prisma.character.update({
+          where: { id: transfer.fromCharacterId },
+          data: { 
+            possessions: JSON.stringify(fromPossessions),
+            crowns: newFromMoney.crowns,
+            orbs: newFromMoney.orbs,
+            scepters: newFromMoney.scepters,
+            kings: newFromMoney.kings
+          }
+        }),
+        prisma.character.update({
+          where: { id: transfer.toCharacterId },
+          data: { 
+            possessions: JSON.stringify(toPossessions),
+            crowns: newToMoney.crowns,
+            orbs: newToMoney.orbs,
+            scepters: newToMoney.scepters,
+            kings: newToMoney.kings
+          }
+        }),
+        prisma.itemTransfer.update({
+          where: { id },
+          data: { status: 'accepted' }
+        }),
+        // Créer toutes les transactions d'historique
+        ...transactionsToCreate.map(t => prisma.transaction.create({ data: t }))
+      ]);
+      
+      // Émettre les événements WebSocket pour synchroniser les personnages
+      const updatedFromCharacter = await prisma.character.findUnique({
+        where: { id: transfer.fromCharacterId }
+      });
+      const updatedToCharacter = await prisma.character.findUnique({
+        where: { id: transfer.toCharacterId }
+      });
+      
+      emitToAll('characterUpdated', updatedFromCharacter);
+      emitToAll('characterUpdated', updatedToCharacter);
+      emitToAll('itemTransferCompleted', { 
+        gameId: transfer.gameId, 
+        transferId: id,
+        status: 'accepted',
+        fromCharacterId: transfer.fromCharacterId,
+        toCharacterId: transfer.toCharacterId,
+        itemText: transfer.itemText,
+        isExchange: transfer.isExchange,
+        requestedItemText: transfer.requestedItemText,
+        offeredCrowns: transfer.offeredCrowns,
+        offeredOrbs: transfer.offeredOrbs,
+        offeredScepters: transfer.offeredScepters,
+        offeredKings: transfer.offeredKings,
+        requestedCrowns: transfer.requestedCrowns,
+        requestedOrbs: transfer.requestedOrbs,
+        requestedScepters: transfer.requestedScepters,
+        requestedKings: transfer.requestedKings
+      });
+      
+      const message = transfer.isExchange 
+        ? "Échange accepté" 
+        : "Transfert accepté";
+      
+      res.json({ 
+        message, 
+        transfer: { ...transfer, status: 'accepted' }
+      });
+    } else {
+      // Refuser le transfert
+      await prisma.itemTransfer.update({
+        where: { id },
+        data: { status: 'rejected' }
+      });
+      
+      emitToAll('itemTransferCompleted', { 
+        gameId: transfer.gameId, 
+        transferId: id,
+        status: 'rejected',
+        fromCharacterId: transfer.fromCharacterId,
+        toCharacterId: transfer.toCharacterId,
+        itemText: transfer.itemText
+      });
+      
+      res.json({ 
+        message: "Transfert refusé", 
+        transfer: { ...transfer, status: 'rejected' }
+      });
+    }
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du transfert:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Annuler un transfert (par l'expéditeur)
+app.delete("/api/item-transfers/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    const transfer = await prisma.itemTransfer.findUnique({
+      where: { id },
+      include: { fromCharacter: true }
+    });
+    
+    if (!transfer) {
+      return res.status(404).json({ error: "Transfert non trouvé" });
+    }
+    
+    // Vérifier que l'utilisateur est propriétaire du personnage source (ou MJ)
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const isMJ = user && user.role === 'mj';
+    
+    if (transfer.fromCharacter.userId !== userId && !isMJ) {
+      return res.status(403).json({ error: "Vous ne pouvez pas annuler ce transfert" });
+    }
+    
+    if (transfer.status !== 'pending') {
+      return res.status(400).json({ error: "Ce transfert ne peut plus être annulé" });
+    }
+    
+    await prisma.itemTransfer.delete({ where: { id } });
+    
+    emitToAll('itemTransferDeleted', { gameId: transfer.gameId, transferId: id });
+    
+    res.json({ message: "Transfert annulé" });
+  } catch (error) {
+    console.error("Erreur lors de l'annulation du transfert:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // Route pour scanner les cartes disponibles
 app.get("/api/cards/available", async (req, res) => {
   try {

@@ -50,6 +50,7 @@ model Game {
   vehicles      Vehicle[]
   crateRequests CrateRequest[]
   vehicleRequests VehicleRequest[]
+  itemTransfers ItemTransfer[]
   
   @@map("games")
 }
@@ -121,6 +122,8 @@ model Game {
   diceRolls   DiceRoll[]
   characterCards CharacterCard[]
   transactions Transaction[]
+  sentTransfers     ItemTransfer[] @relation("SentTransfers")
+  receivedTransfers ItemTransfer[] @relation("ReceivedTransfers")
   
   @@map("characters")
 }
@@ -286,4 +289,41 @@ model VehicleRequest {
   game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
   
   @@map("vehicle_requests")
+}
+
+// Modèle pour les transferts d'items entre personnages
+model ItemTransfer {
+  id              String   @id @default(cuid())
+  itemId          String?  // ID de l'item dans le JSON possessions (optionnel si transfert d'argent seul)
+  itemText        String?  // Texte de l'item (pour l'affichage)
+  // Pour les échanges : item demandé en retour
+  requestedItemId   String?  // ID de l'item demandé en échange (optionnel)
+  requestedItemText String?  // Texte de l'item demandé en échange
+  isExchange        Boolean  @default(false) // true si c'est un échange, false si c'est un don
+  
+  // Argent offert par l'expéditeur
+  offeredCrowns     Int      @default(0)
+  offeredOrbs       Int      @default(0)
+  offeredScepters   Int      @default(0)
+  offeredKings      Int      @default(0)
+  
+  // Argent demandé au destinataire (pour les échanges)
+  requestedCrowns   Int      @default(0)
+  requestedOrbs     Int      @default(0)
+  requestedScepters Int      @default(0)
+  requestedKings    Int      @default(0)
+  
+  status          String   @default("pending") // pending, accepted, rejected
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  fromCharacterId String
+  fromCharacter   Character @relation("SentTransfers", fields: [fromCharacterId], references: [id], onDelete: Cascade)
+  toCharacterId   String
+  toCharacter     Character @relation("ReceivedTransfers", fields: [toCharacterId], references: [id], onDelete: Cascade)
+  gameId          String
+  game            Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  
+  @@map("item_transfers")
 }
