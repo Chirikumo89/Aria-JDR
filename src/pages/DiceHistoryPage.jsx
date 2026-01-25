@@ -6,9 +6,10 @@ import { useSocket } from '../context/SocketContext';
 export default function DiceHistoryPage() {
   const [diceRolls, setDiceRolls] = useState([]);
   const [stats, setStats] = useState(null);
+  const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('history'); // 'history', 'stats', 'charts'
-  const [filter, setFilter] = useState({ diceType: 'all', player: 'all' });
+  const [filter, setFilter] = useState({ diceType: 'all', player: 'all', session: 'latest', specificDate: null });
   const [lastUpdate, setLastUpdate] = useState(null);
   const socket = useSocket();
   const mountedRef = useRef(true);
@@ -28,7 +29,7 @@ export default function DiceHistoryPage() {
   // Charger les données initiales
   useEffect(() => {
     mountedRef.current = true;
-    
+
     const loadData = async () => {
       try {
         setLoading(true);
@@ -39,6 +40,17 @@ export default function DiceHistoryPage() {
         if (mountedRef.current) {
           setDiceRolls(rollsData);
           setStats(statsData);
+
+          // Extraire les sessions (jours uniques) des données
+          const uniqueDates = [...new Set(rollsData.map(roll => {
+            const date = new Date(roll.createdAt);
+            return date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          }))].sort((a, b) => {
+            const dateA = new Date(a.split('/').reverse().join('-'));
+            const dateB = new Date(b.split('/').reverse().join('-'));
+            return dateB - dateA;
+          });
+          setSessions(uniqueDates);
         }
       } catch (err) {
         console.error('Erreur chargement historique:', err);
@@ -99,6 +111,23 @@ export default function DiceHistoryPage() {
     if (filter.diceType !== 'all' && roll.diceType !== filter.diceType) return false;
     const playerName = roll.character?.name || roll.user?.username || roll.playerName || '';
     if (filter.player !== 'all' && playerName !== filter.player) return false;
+
+    // Filtrer par date spécifique si fournie
+    if (filter.specificDate) {
+      const rollDate = new Date(roll.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const filterDate = new Date(filter.specificDate).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      if (rollDate !== filterDate) return false;
+    } 
+    // Filtrer par séance sinon
+    else if (filter.session !== 'all') {
+      const rollDate = new Date(roll.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      if (filter.session === 'latest') {
+        if (sessions.length > 0 && rollDate !== sessions[0]) return false;
+      } else if (rollDate !== filter.session) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -170,12 +199,23 @@ export default function DiceHistoryPage() {
   };
 
   // Calculer les données temporelles par séance (jour)
-  const getTimelineData = (rolls, diceType = null) => {
+  const getTimelineData = (rolls, diceType = null, sessionFilter = null) => {
     // Filtrer par type si spécifié
-    const filtered = diceType 
+    let filtered = diceType
       ? rolls.filter(r => r.diceType?.toLowerCase() === diceType.toLowerCase())
       : rolls;
-    
+
+    // Filtrer par session si spécifié
+    if (sessionFilter && sessionFilter !== 'all') {
+      filtered = filtered.filter(roll => {
+        const rollDate = new Date(roll.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        if (sessionFilter === 'latest') {
+          return sessions.length > 0 && rollDate === sessions[0];
+        }
+        return rollDate === sessionFilter;
+      });
+    }
+
     if (filtered.length === 0) return [];
 
     // Grouper par jour
@@ -183,7 +223,7 @@ export default function DiceHistoryPage() {
     filtered.forEach(roll => {
       const date = new Date(roll.createdAt);
       const dayKey = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      
+
       if (!byDay[dayKey]) {
         byDay[dayKey] = {
           date: dayKey,
@@ -206,6 +246,50 @@ export default function DiceHistoryPage() {
         min: Math.min(...day.rolls.map(r => r.result)),
         max: Math.max(...day.rolls.map(r => r.result))
       }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  };
+
+  // Calculer les données pour le Box Plot par séance
+  const getBoxPlotData = (rolls, diceType = 'd100') => {
+    const filtered = rolls.filter(r => r.diceType?.toLowerCase() === diceType.toLowerCase());
+
+    if (filtered.length === 0) return [];
+
+    // Grouper par jour
+    const byDay = {};
+    filtered.forEach(roll => {
+      const date = new Date(roll.createdAt);
+      const dayKey = date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+      if (!byDay[dayKey]) {
+        byDay[dayKey] = {
+          date: dayKey,
+          timestamp: new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime(),
+          values: []
+        };
+      }
+      byDay[dayKey].values.push(roll.result);
+    });
+
+    // Calculer les quartiles pour chaque jour
+    return Object.values(byDay)
+      .map(day => {
+        const sorted = [...day.values].sort((a, b) => a - b);
+        const q1Index = Math.floor(sorted.length * 0.25);
+        const q2Index = Math.floor(sorted.length * 0.50);
+        const q3Index = Math.floor(sorted.length * 0.75);
+
+        return {
+          date: day.date,
+          timestamp: day.timestamp,
+          min: Math.min(...sorted),
+          q1: sorted[q1Index],
+          median: sorted[q2Index],
+          q3: sorted[q3Index],
+          max: Math.max(...sorted),
+          count: sorted.length
+        };
+      })
       .sort((a, b) => a.timestamp - b.timestamp);
   };
 
@@ -336,6 +420,30 @@ export default function DiceHistoryPage() {
                 <option value="all">Tous</option>
                 {uniquePlayers.map(player => (
                   <option key={player} value={player}>{player}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-secondary mb-1">Date spécifique</label>
+              <input
+                type="date"
+                value={filter.specificDate || ''}
+                onChange={(e) => setFilter({ ...filter, specificDate: e.target.value, session: 'all' })}
+                className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-secondary mb-1">Séance</label>
+              <select
+                value={filter.session}
+                onChange={(e) => setFilter({ ...filter, session: e.target.value, specificDate: null })}
+                disabled={!!filter.specificDate}
+                className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-purple-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="all">Toutes</option>
+                <option value="latest">Dernière séance</option>
+                {sessions.map((sessionDate, index) => (
+                  <option key={index} value={sessionDate}>{sessionDate}</option>
                 ))}
               </select>
             </div>
@@ -506,12 +614,85 @@ export default function DiceHistoryPage() {
 
       {activeTab === 'charts' && (
         <div className="animate-fadeIn">
+          {/* Filtres pour les graphiques */}
+          <div className="flex flex-wrap gap-4 mb-6 p-4 rounded-xl bg-white/5 border border-white/10">
+            <div>
+              <label className="block text-sm text-secondary mb-1">Type de dé</label>
+              <select
+                value={filter.diceType}
+                onChange={(e) => setFilter({ ...filter, diceType: e.target.value })}
+                className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-purple-500 focus:outline-none"
+              >
+                <option value="all">Tous</option>
+                <option value="d6">D6</option>
+                <option value="d10">D10</option>
+                <option value="d20">D20</option>
+                <option value="d100">D100</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-secondary mb-1">Joueur</label>
+              <select
+                value={filter.player}
+                onChange={(e) => setFilter({ ...filter, player: e.target.value })}
+                className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-purple-500 focus:outline-none"
+              >
+                <option value="all">Tous</option>
+                {uniquePlayers.map(player => (
+                  <option key={player} value={player}>{player}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-secondary mb-1">Date spécifique</label>
+              <input
+                type="date"
+                value={filter.specificDate || ''}
+                onChange={(e) => setFilter({ ...filter, specificDate: e.target.value, session: 'all' })}
+                className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-secondary mb-1">Séance</label>
+              <select
+                value={filter.session}
+                onChange={(e) => setFilter({ ...filter, session: e.target.value, specificDate: null })}
+                disabled={!!filter.specificDate}
+                className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white focus:border-purple-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="all">Toutes</option>
+                <option value="latest">Dernière séance</option>
+                {sessions.map((sessionDate, index) => (
+                  <option key={index} value={sessionDate}>{sessionDate}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Box Plot D100 */}
+          <div className="mb-8 p-6 rounded-xl bg-white/5 border border-white/10">
+            <h3 className="text-xl font-bold text-primary mb-2">📊 Distribution D100 (Box Plot)</h3>
+            <p className="text-secondary text-sm mb-4">Visualisation des quartiles, médiane et extrêmes par séance</p>
+            <div className="h-72">
+              <BoxPlotChart data={getBoxPlotData(filteredRolls, 'd100')} diceType="D100" />
+            </div>
+          </div>
+
+          {/* Box Plot D6 */}
+          <div className="mb-8 p-6 rounded-xl bg-white/5 border border-white/10">
+            <h3 className="text-xl font-bold text-primary mb-2">📊 Distribution D6 (Box Plot)</h3>
+            <p className="text-secondary text-sm mb-4">Visualisation des quartiles, médiane et extrêmes par séance</p>
+            <div className="h-72">
+              <BoxPlotChart data={getBoxPlotData(filteredRolls, 'd6')} diceType="D6" />
+            </div>
+          </div>
+
           {/* Graphique temporel - Jets dans le temps */}
           <div className="mb-8 p-6 rounded-xl bg-white/5 border border-white/10">
             <h3 className="text-xl font-bold text-primary mb-2">Jets dans le temps (D100)</h3>
             <p className="text-secondary text-sm mb-4">Moyenne par séance de jeu avec min/max</p>
             <div className="h-72">
-              <TimelineChart data={getTimelineData(diceRolls, 'd100')} color="#a855f7" />
+              <TimelineChart data={getTimelineData(filteredRolls, 'd100')} color="#a855f7" />
             </div>
           </div>
 
@@ -520,7 +701,7 @@ export default function DiceHistoryPage() {
             <h3 className="text-xl font-bold text-primary mb-2">Activité globale dans le temps</h3>
             <p className="text-secondary text-sm mb-4">Nombre de jets par séance</p>
             <div className="h-64">
-              <ActivityChart data={getTimelineData(diceRolls)} />
+              <ActivityChart data={getTimelineData(filteredRolls)} />
             </div>
           </div>
 
@@ -528,7 +709,7 @@ export default function DiceHistoryPage() {
           <div className="mb-8 p-6 rounded-xl bg-white/5 border border-white/10">
             <h3 className="text-xl font-bold text-primary mb-4">Distribution des résultats D100</h3>
             <div className="h-64">
-              <DistributionChart data={getDistribution(diceRolls, 'd100')} color="#a855f7" />
+              <DistributionChart data={getDistribution(filteredRolls, 'd100')} color="#a855f7" />
             </div>
           </div>
 
@@ -536,7 +717,7 @@ export default function DiceHistoryPage() {
           <div className="mb-8 p-6 rounded-xl bg-white/5 border border-white/10">
             <h3 className="text-xl font-bold text-primary mb-4">Distribution des résultats D6</h3>
             <div className="h-48">
-              <DistributionChart data={getDistribution(diceRolls, 'd6')} color="#3b82f6" />
+              <DistributionChart data={getDistribution(filteredRolls, 'd6')} color="#3b82f6" />
             </div>
           </div>
 
@@ -857,6 +1038,268 @@ function ActivityChart({ data }) {
         <span className="text-secondary">
           Moy/séance: <span className="text-white font-semibold">{(data.reduce((sum, d) => sum + d.count, 0) / data.length).toFixed(1)}</span>
         </span>
+      </div>
+    </div>
+  );
+}
+
+// Composant pour le Box Plot avec tooltip interactif
+function BoxPlotChart({ data, diceType = 'd100' }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState(null);
+
+  if (!data || data.length === 0) {
+    return <div className="h-full flex items-center justify-center text-secondary">Pas de données pour {diceType}</div>;
+  }
+
+  const padding = { top: 20, right: 30, bottom: 40, left: 50 };
+  const maxValue = Math.max(...data.map(d => d.max), 100);
+  const minValue = 0;
+  const chartHeight = 200;
+  const chartWidth = 600;
+
+  const getYPosition = (value) => {
+    return padding.top + ((maxValue - value) / (maxValue - minValue)) * (chartHeight - padding.top - padding.bottom);
+  };
+
+  const boxWidth = Math.max((chartWidth - padding.left - padding.right) / (data.length + 1), 30);
+  const boxSpacing = (chartWidth - padding.left - padding.right) / (data.length + 1);
+
+  const handleMouseEnter = (index, x) => {
+    setHoveredIndex(index);
+    setTooltipPos(x);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredIndex(null);
+    setTooltipPos(null);
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Graphique SVG */}
+      <div className="flex-1 relative">
+        {/* Tooltip flottant */}
+        {hoveredIndex !== null && data[hoveredIndex] && (
+          <div 
+            className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 bg-gradient-to-b from-gray-900 to-gray-800 border border-purple-500/50 rounded-lg p-4 shadow-2xl z-10 whitespace-nowrap pointer-events-none"
+            style={{
+              minWidth: '280px',
+              boxShadow: '0 0 20px rgba(168, 85, 247, 0.3)'
+            }}
+          >
+            {/* Flèche pointant vers le bas */}
+            <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900"></div>
+            
+            <div className="space-y-2 text-sm">
+              <div className="font-bold text-purple-300 text-center border-b border-purple-500/30 pb-2">
+                {data[hoveredIndex].date}
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div className="text-right">
+                  <span className="text-gray-400">Min:</span>
+                </div>
+                <div className="text-left font-semibold text-blue-400">
+                  {data[hoveredIndex].min}
+                </div>
+                
+                <div className="text-right">
+                  <span className="text-gray-400">Q1:</span>
+                </div>
+                <div className="text-left font-semibold text-purple-300">
+                  {data[hoveredIndex].q1}
+                </div>
+                
+                <div className="text-right">
+                  <span className="text-gray-400">Médiane:</span>
+                </div>
+                <div className="text-left font-semibold text-green-400">
+                  {data[hoveredIndex].median}
+                </div>
+                
+                <div className="text-right">
+                  <span className="text-gray-400">Q3:</span>
+                </div>
+                <div className="text-left font-semibold text-purple-300">
+                  {data[hoveredIndex].q3}
+                </div>
+                
+                <div className="text-right">
+                  <span className="text-gray-400">Max:</span>
+                </div>
+                <div className="text-left font-semibold text-blue-400">
+                  {data[hoveredIndex].max}
+                </div>
+              </div>
+              <div className="border-t border-purple-500/30 pt-2 mt-2 text-center text-xs text-gray-300">
+                <span className="text-purple-400 font-semibold">{data[hoveredIndex].count}</span> résultats
+              </div>
+              <div className="text-xs text-gray-500 pt-1 text-center">
+                Écart (Max-Min): <span className="text-amber-400 font-semibold">{data[hoveredIndex].max - data[hoveredIndex].min}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <svg className="w-full h-full" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="xMidYMid meet">
+          {/* Grille horizontale */}
+          {[0, 25, 50, 75, 100].map(val => {
+            const y = getYPosition(val);
+            return (
+              <g key={`grid-${val}`}>
+                <line
+                  x1={padding.left}
+                  y1={y}
+                  x2={chartWidth - padding.right}
+                  y2={y}
+                  stroke="rgba(255,255,255,0.1)"
+                  strokeDasharray="4,4"
+                />
+                <text 
+                  x={padding.left - 5} 
+                  y={y + 4} 
+                  fill="rgba(255,255,255,0.5)" 
+                  fontSize="10" 
+                  textAnchor="end"
+                >
+                  {val}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Axe Y */}
+          <line
+            x1={padding.left}
+            y1={padding.top}
+            x2={padding.left}
+            y2={chartHeight - padding.bottom}
+            stroke="rgba(255,255,255,0.3)"
+            strokeWidth="2"
+          />
+
+          {/* Axe X */}
+          <line
+            x1={padding.left}
+            y1={chartHeight - padding.bottom}
+            x2={chartWidth - padding.right}
+            y2={chartHeight - padding.bottom}
+            stroke="rgba(255,255,255,0.3)"
+            strokeWidth="2"
+          />
+
+          {/* Box plots */}
+          {data.map((day, index) => {
+            const x = padding.left + (index + 1) * boxSpacing - boxWidth / 2;
+            const minY = getYPosition(day.min);
+            const q1Y = getYPosition(day.q1);
+            const medianY = getYPosition(day.median);
+            const q3Y = getYPosition(day.q3);
+            const maxY = getYPosition(day.max);
+            const isHovered = hoveredIndex === index;
+
+            return (
+              <g 
+                key={`boxplot-${index}`}
+                onMouseEnter={() => handleMouseEnter(index, x + boxWidth / 2)}
+                onMouseLeave={handleMouseLeave}
+                style={{ cursor: 'pointer' }}
+              >
+                {/* Ligne min-max (whiskers) */}
+                <line
+                  x1={x + boxWidth / 2}
+                  y1={minY}
+                  x2={x + boxWidth / 2}
+                  y2={maxY}
+                  stroke={isHovered ? "#60a5fa" : "#a855f7"}
+                  strokeWidth={isHovered ? "2.5" : "1.5"}
+                  opacity={isHovered ? "1" : "0.6"}
+                  style={{ transition: 'all 0.2s ease' }}
+                />
+
+                {/* Boîte Q1-Q3 */}
+                <rect
+                  x={x}
+                  y={Math.min(q1Y, q3Y)}
+                  width={boxWidth}
+                  height={Math.abs(q3Y - q1Y) || 1}
+                  fill={isHovered ? "rgba(168, 85, 247, 0.5)" : "rgba(168, 85, 247, 0.3)"}
+                  stroke={isHovered ? "#f472b6" : "#a855f7"}
+                  strokeWidth={isHovered ? "3" : "2"}
+                  style={{ transition: 'all 0.2s ease' }}
+                />
+
+                {/* Ligne médiane */}
+                <line
+                  x1={x}
+                  y1={medianY}
+                  x2={x + boxWidth}
+                  y2={medianY}
+                  stroke={isHovered ? "#34d399" : "#10b981"}
+                  strokeWidth={isHovered ? "4" : "3"}
+                  style={{ transition: 'all 0.2s ease' }}
+                />
+
+                {/* Points min et max */}
+                <circle
+                  cx={x + boxWidth / 2}
+                  cy={minY}
+                  r={isHovered ? "3.5" : "2.5"}
+                  fill={isHovered ? "#60a5fa" : "#3b82f6"}
+                  style={{ transition: 'all 0.2s ease' }}
+                />
+                <circle
+                  cx={x + boxWidth / 2}
+                  cy={maxY}
+                  r={isHovered ? "3.5" : "2.5"}
+                  fill={isHovered ? "#60a5fa" : "#3b82f6"}
+                  style={{ transition: 'all 0.2s ease' }}
+                />
+
+                {/* Zone interactive pour tooltip */}
+                <rect
+                  x={x - 2}
+                  y={Math.min(minY, maxY) - 5}
+                  width={boxWidth + 4}
+                  height={Math.max(minY, maxY) - Math.min(minY, maxY) + 10}
+                  fill="transparent"
+                  style={{ pointerEvents: 'auto' }}
+                />
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Axe X - Dates */}
+      <div className="flex justify-between px-12 text-xs text-muted mt-2 -mb-2">
+        {data.length <= 7 
+          ? data.map((d, i) => <span key={i} className="text-center flex-1 truncate">{d.date.slice(0, 5)}</span>)
+          : <>
+              <span>{data[0].date.slice(0, 5)}</span>
+              {data.length > 2 && <span>{data[Math.floor(data.length / 2)].date.slice(0, 5)}</span>}
+              <span>{data[data.length - 1].date.slice(0, 5)}</span>
+            </>
+        }
+      </div>
+
+      {/* Légende */}
+      <div className="flex justify-center gap-6 mt-4 text-xs flex-wrap">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-3 border-2 border-purple-500" style={{ backgroundColor: 'rgba(168, 85, 247, 0.3)' }}></div>
+          <span className="text-secondary">Q1-Q3 (50%)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4" style={{ borderTop: '3px solid #10b981' }}></div>
+          <span className="text-secondary">Médiane</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-0.5" style={{ backgroundColor: '#a855f7' }}></div>
+          <span className="text-secondary">Min/Max</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-secondary">Total: <span className="text-white font-semibold">{data.reduce((sum, d) => sum + d.count, 0)} résultats</span></div>
+        </div>
       </div>
     </div>
   );

@@ -191,18 +191,18 @@ export default function DiceBox3D() {
           assetPath: "/assets/dice-box/",
           theme: "default",
           themeColor: "#4a90e2",
-          scale: 4, // Réduit drastiquement pour des dés très petits
-          gravity: 2, // Augmente la gravité pour un mouvement plus rapide
-          mass: 0.3, // Encore plus léger
+          scale: 6, // Taille visible des dés
+          gravity: 1, // Gravité normale pour animation visible
+          mass: 1, // Masse normale
           friction: 0.8,
-          restitution: 0.2,
-          linearDamping: 0.2,
-          angularDamping: 0.2,
+          restitution: 0.5, // Plus de rebond pour animation plus longue
+          linearDamping: 0.5, // Ralentissement progressif
+          angularDamping: 0.4, // Rotation qui ralentit progressivement
           shadowTransparency: 0.15,
-          startingHeight: 10, // Hauteur encore plus basse
-          throwForce: 6, // Force réduite
-          spinForce: 2, // Rotation minimale
-          startingPosition: { x: 0, y: 10, z: 0 }, // Position très basse
+          startingHeight: 20, // Hauteur de départ suffisante
+          throwForce: 8, // Force de lancer visible
+          spinForce: 5, // Rotation visible
+          startingPosition: { x: 0, y: 20, z: 0 }, // Position de départ
           // Configuration pour forcer la taille du canvas
           canvas: {
             width: "100%",
@@ -323,15 +323,20 @@ export default function DiceBox3D() {
 
   // Écouter les événements socket pour la synchronisation
   useEffect(() => {
-    console.log("[DiceBox3D] useEffect socket - Socket:", !!socket, "Initialisé:", isInitialized);
-    
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("[DiceBox3D] 🔧 USEEFFECT SOCKET DÉCLENCHÉ");
+    console.log("[DiceBox3D] 📡 Socket existe:", !!socket);
+    console.log("[DiceBox3D] ✅ DiceBox initialisé:", isInitialized);
+    console.log("[DiceBox3D] 🔌 Socket connecté:", socket?.connected);
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
     if (!socket) {
-      console.log("[DiceBox3D] Pas de socket, arrêt");
+      console.error("[DiceBox3D] ❌ PAS DE SOCKET - Les listeners ne seront PAS attachés !");
       return;
     }
-    
+
     if (!isInitialized) {
-      console.log("[DiceBox3D] Pas encore initialisé, arrêt");
+      console.warn("[DiceBox3D] ⚠️ DICEBOX NON INITIALISÉ - Les listeners ne seront PAS attachés !");
       return;
     }
 
@@ -434,18 +439,18 @@ export default function DiceBox3D() {
                 assetPath: "/assets/dice-box/",
                 theme: "default",
                 themeColor: "#4a90e2",
-                scale: 4,
-                gravity: 2,
-                mass: 0.3,
+                scale: 6, // Taille visible des dés
+                gravity: 1, // Gravité normale pour animation visible
+                mass: 1, // Masse normale
                 friction: 0.8,
-                restitution: 0.2,
-                linearDamping: 0.2,
-                angularDamping: 0.2,
+                restitution: 0.5, // Plus de rebond pour animation plus longue
+                linearDamping: 0.5, // Ralentissement progressif
+                angularDamping: 0.4, // Rotation qui ralentit progressivement
                 shadowTransparency: 0.15,
-                startingHeight: 10,
-                throwForce: 6,
-                spinForce: 2,
-                startingPosition: { x: 0, y: 10, z: 0 },
+                startingHeight: 20, // Hauteur de départ suffisante
+                throwForce: 8, // Force de lancer visible
+                spinForce: 5, // Rotation visible
+                startingPosition: { x: 0, y: 20, z: 0 }, // Position de départ
                 canvas: {
                   width: "100%",
                   height: "100%"

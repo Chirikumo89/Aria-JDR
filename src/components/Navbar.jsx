@@ -2,16 +2,20 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useDiceModal } from "../context/DiceModalContext";
 import { useAuth } from "../context/AuthContext";
+import { useGame } from "../context/GameContext";
 import { Button } from "./UI/Button";
 import ThemeToggle from "./ThemeToggle";
 import LoginModal from "./LoginModal";
 import UserInfo from "./UserInfo";
 import RoleManager from "./RoleManager";
+import GameTimeDisplay from "./GameTimeDisplay";
 
 export default function Navbar() {
   const { show } = useDiceModal();
   const { user, isAuthenticated } = useAuth();
+  const { currentGame } = useGame();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showGameTimeModal, setShowGameTimeModal] = useState(false);
 
   return (
     <>
@@ -30,6 +34,17 @@ export default function Navbar() {
             Aria JDR
           </span>
         </Link>
+
+        {/* Heure en jeu (visible si une partie est sélectionnée) */}
+        {currentGame && (
+          <div 
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 cursor-pointer hover:bg-amber-500/20 transition-colors"
+            onClick={() => setShowGameTimeModal(true)}
+            title="Cliquez pour modifier l'heure en jeu"
+          >
+            <GameTimeDisplay gameId={currentGame.id} compact={true} />
+          </div>
+        )}
 
         {/* Navigation Items */}
         <div className="flex gap-3 items-center">
@@ -101,6 +116,34 @@ export default function Navbar() {
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
       />
+
+      {/* Modal Heure en jeu */}
+      {showGameTimeModal && currentGame && (
+        <div 
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn"
+          onClick={() => setShowGameTimeModal(false)}
+        >
+          <div 
+            className="w-full max-w-md animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-primary">
+                {currentGame.name}
+              </h2>
+              <button
+                onClick={() => setShowGameTimeModal(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-muted hover:text-primary"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <GameTimeDisplay gameId={currentGame.id} />
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -163,6 +163,19 @@ class ApiService {
     return response.json();
   }
 
+  // Sessions de jeu
+  async getGameSessions(gameId) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/sessions`);
+    if (!response.ok) throw new Error('Erreur lors de la récupération des sessions');
+    return response.json();
+  }
+
+  async getSessionDiceRolls(sessionId) {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/dice-rolls`);
+    if (!response.ok) throw new Error('Erreur lors de la récupération des jets de dés de la session');
+    return response.json();
+  }
+
   // Cartes
   async getCards(gameId) {
     const response = await fetch(`${API_BASE_URL}/games/${gameId}/cards`);
@@ -299,6 +312,29 @@ class ApiService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error || 'Erreur lors de la création de la transaction de la caisse commune');
+    }
+    return response.json();
+  }
+
+  // Heure en jeu
+  async getGameTime(gameId) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/game-time`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération de l\'heure en jeu');
+    }
+    return response.json();
+  }
+
+  async updateGameTime(gameId, timeData) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/game-time`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(timeData)
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la mise à jour de l\'heure en jeu');
     }
     return response.json();
   }

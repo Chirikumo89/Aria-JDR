@@ -258,6 +258,87 @@ app.post("/api/games", async (req, res) => {
   }
 });
 
+// ========== ROUTES POUR L'HEURE EN JEU ==========
+
+// Route pour récupérer l'heure en jeu d'une partie
+app.get("/api/games/:id/game-time", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const game = await prisma.game.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        gameTime: true,
+        gameDate: true
+      }
+    });
+    
+    if (!game) {
+      return res.status(404).json({ error: "Partie non trouvée" });
+    }
+    
+    res.json(game);
+  } catch (error) {
+    console.error("Erreur lors de la récupération de l'heure en jeu:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Route pour mettre à jour l'heure en jeu d'une partie (MJ seulement)
+app.put("/api/games/:id/game-time", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { gameTime, gameDate } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seul le Maître de Jeu peut modifier l'heure en jeu" });
+    }
+    
+    // Vérifier que la partie existe
+    const existingGame = await prisma.game.findUnique({
+      where: { id }
+    });
+    
+    if (!existingGame) {
+      return res.status(404).json({ error: "Partie non trouvée" });
+    }
+    
+    // Mettre à jour l'heure en jeu
+    const updatedGame = await prisma.game.update({
+      where: { id },
+      data: {
+        gameTime: gameTime !== undefined ? gameTime : existingGame.gameTime,
+        gameDate: gameDate !== undefined ? gameDate : existingGame.gameDate
+      },
+      select: {
+        id: true,
+        gameTime: true,
+        gameDate: true
+      }
+    });
+    
+    // Émettre l'événement WebSocket pour notifier tous les joueurs
+    emitToAll('gameTimeUpdated', { gameId: id, gameTime: updatedGame.gameTime, gameDate: updatedGame.gameDate });
+    
+    console.log(`[Server] Heure en jeu mise à jour pour la partie ${id}:`, updatedGame);
+    
+    res.json(updatedGame);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de l'heure en jeu:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
 app.delete("/api/games/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -670,6 +751,43 @@ app.get("/api/dice-rolls/stats", async (req, res) => {
     });
   } catch (error) {
     console.error("Erreur lors du calcul des statistiques:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Routes pour les sessions de jeu
+app.get("/api/games/:id/sessions", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sessions = await prisma.gameSession.findMany({
+      where: { gameId: id },
+      orderBy: { date: 'desc' }
+    });
+    res.json(sessions);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des sessions:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.get("/api/sessions/:id/dice-rolls", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const diceRolls = await prisma.diceRoll.findMany({
+      where: { sessionId: id },
+      include: {
+        character: {
+          select: { name: true, playerName: true }
+        },
+        user: {
+          select: { username: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(diceRolls);
+  } catch (error) {
+    console.error("Erreur lors de la récupération des jets de dés de la session:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });

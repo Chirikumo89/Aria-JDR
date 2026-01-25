@@ -5,6 +5,7 @@ import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import CardManager from '../components/Cards/CardManager';
+import GameTimeDisplay from '../components/GameTimeDisplay';
 
 export default function Games() {
   const { 
@@ -267,6 +268,12 @@ export default function Games() {
               </h2>
               <p className="text-secondary">Partie en cours</p>
             </div>
+            
+            {/* Panneau d'heure en jeu */}
+            <div className="flex-shrink-0 w-full sm:w-auto">
+              <GameTimeDisplay gameId={currentGame.id} />
+            </div>
+            
             {/* Bouton Dashboard MJ */}
             {isMJ() && (
               <Link

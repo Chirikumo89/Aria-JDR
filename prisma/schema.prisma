@@ -34,6 +34,10 @@ model Game {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  // Heure en jeu (format "HH:mm" ou texte libre, ex: "14:30" ou "Aube")
+  gameTime    String?  // Heure en jeu définie par le MJ
+  gameDate    String?  // Date en jeu (ex: "15 Vendémiaire, An 3")
+  
   // Caisse commune (accessible à tous les joueurs de la partie)
   commonTreasuryCrowns   Int @default(0)  // Couronnes (or) - monnaie principale
   commonTreasuryOrbs     Int @default(0)  // Orbes (argent) - 1 couronne = 10 orbes
@@ -137,7 +141,7 @@ model DiceRoll {
   units     Int?     // Pour les d100
   playerName String?  // Nom du joueur qui a lancé le dé
   createdAt DateTime @default(now())
-  
+
   // Relations (toutes optionnelles pour permettre les jets "libres")
   gameId      String?
   game        Game?     @relation(fields: [gameId], references: [id], onDelete: Cascade)
@@ -145,7 +149,9 @@ model DiceRoll {
   character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
   userId      String?
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
+  sessionId   String?  // Lien vers la session de jeu
+  session     GameSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
   @@map("dice_rolls")
 }
 
@@ -158,11 +164,12 @@ model GameSession {
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
   gameId      String
   game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  
+  diceRolls   DiceRoll[]  // Jets de dés de cette session
+
   @@map("game_sessions")
 }
 
