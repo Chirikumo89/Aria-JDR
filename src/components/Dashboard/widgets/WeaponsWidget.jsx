@@ -1,9 +1,9 @@
 import DashboardWidget from '../DashboardWidget';
 import WeaponSelector from '../../WeaponSelector';
 
-export default function WeaponsWidget({ formData, onInputChange, canEdit, widgetId, isMJ }) {
+export default function WeaponsWidget({ formData, onInputChange, canEdit, widgetId, isMJ, widthPercent, height, onResize, isEditing }) {
   return (
-    <DashboardWidget title="Arsenal" icon="⚔️" color="slate" widgetId={widgetId}>
+    <DashboardWidget title="Arsenal" icon="⚔️" color="slate" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <div className="space-y-3">
         {[1, 2, 3].map(num => (
           <div key={num} className="p-2 bg-white/70 rounded-lg border border-slate-200 space-y-2">

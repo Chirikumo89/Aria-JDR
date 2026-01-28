@@ -1,9 +1,9 @@
 import DashboardWidget from '../DashboardWidget';
 import MoneyManager from '../../MoneyManager';
 
-export default function MoneyWidget({ formData, setFormData, canEdit, characterId, widgetId }) {
+export default function MoneyWidget({ formData, setFormData, canEdit, characterId, widgetId, widthPercent, height, onResize, isEditing }) {
   return (
-    <DashboardWidget title="Bourse" icon="💰" color="amber" widgetId={widgetId}>
+    <DashboardWidget title="Bourse" icon="💰" color="amber" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <MoneyManager
         currencies={{
           crowns: formData.crowns,

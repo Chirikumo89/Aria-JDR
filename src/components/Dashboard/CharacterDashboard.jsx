@@ -28,6 +28,7 @@ import PendingTransfers from '../PendingTransfers';
 import ItemTransferModal from '../ItemTransferModal';
 
 const STORAGE_KEY = 'aria-dashboard-layout';
+const WIDGET_SIZES_KEY = 'aria-widget-sizes';
 
 // Ordre par défaut des widgets
 const DEFAULT_ORDER = [
@@ -36,6 +37,9 @@ const DEFAULT_ORDER = [
   'skills', 'specialSkills', 'temporarySkills',
   'possessions', 'notes', 'treasury', 'vehicles', 'cards'
 ];
+
+// Largeur par défaut des widgets en %
+const DEFAULT_WIDTH_PERCENT = 25;
 
 export default function CharacterDashboard({ character, onSave, isEditable = true }) {
   const { canEditCharacter, canViewCharacter, isMJ } = usePermissions();
@@ -65,6 +69,30 @@ export default function CharacterDashboard({ character, onSave, isEditable = tru
 
   const [draggedWidget, setDraggedWidget] = useState(null);
   const [isEditingLayout, setIsEditingLayout] = useState(false);
+
+  // État pour les tailles des widgets (widthPercent et height)
+  const [widgetSizes, setWidgetSizes] = useState(() => {
+    const saved = localStorage.getItem(`${WIDGET_SIZES_KEY}-${user?.id || 'guest'}`);
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  // Handler pour le redimensionnement des widgets
+  const handleWidgetResize = useCallback((widgetId, { widthPercent, height }) => {
+    setWidgetSizes(prev => {
+      const newSizes = {
+        ...prev,
+        [widgetId]: { widthPercent, height }
+      };
+      localStorage.setItem(`${WIDGET_SIZES_KEY}-${user?.id || 'guest'}`, JSON.stringify(newSizes));
+      return newSizes;
+    });
+  }, [user?.id]);
+
+  // Reset toutes les tailles
+  const resetAllSizes = useCallback(() => {
+    setWidgetSizes({});
+    localStorage.removeItem(`${WIDGET_SIZES_KEY}-${user?.id || 'guest'}`);
+  }, [user?.id]);
 
   const [formData, setFormData] = useState(() => ({
     name: String(character?.name || ''),
@@ -110,6 +138,7 @@ export default function CharacterDashboard({ character, onSave, isEditable = tru
   // Reset layout
   const resetLayout = () => {
     saveWidgetOrder(DEFAULT_ORDER);
+    resetAllSizes();
   };
 
   // Drag and drop handlers
@@ -316,23 +345,34 @@ export default function CharacterDashboard({ character, onSave, isEditable = tru
     isMJ: isMJ()
   };
 
+  // Fonction helper pour obtenir les props de taille d'un widget
+  const getWidgetSizeProps = (widgetId) => {
+    const sizes = widgetSizes[widgetId] || {};
+    return {
+      widthPercent: sizes.widthPercent || DEFAULT_WIDTH_PERCENT,
+      height: sizes.height || 'auto',
+      onResize: handleWidgetResize,
+      isEditing: isEditingLayout
+    };
+  };
+
   // Map des widgets avec widgetId pour la sauvegarde des tailles
   const widgetComponents = {
-    info: <InfoWidget {...widgetProps} widgetId="info" />,
-    combat: <CombatWidget {...widgetProps} widgetId="combat" />,
-    stats: <StatsWidget {...widgetProps} widgetId="stats" />,
-    weapons: <WeaponsWidget {...widgetProps} widgetId="weapons" />,
-    lifePoints: <LifePointsWidget {...widgetProps} widgetId="lifePoints" />,
-    money: <MoneyWidget {...widgetProps} widgetId="money" />,
-    personality: <PersonalityWidget {...widgetProps} widgetId="personality" />,
-    skills: <SkillsWidget {...widgetProps} widgetId="skills" />,
-    specialSkills: <SpecialSkillsWidget {...widgetProps} widgetId="specialSkills" />,
-    temporarySkills: <TemporarySkillsWidget {...widgetProps} widgetId="temporarySkills" />,
-    possessions: <PossessionsWidget {...widgetProps} widgetId="possessions" />,
-    notes: <NotesWidget {...widgetProps} widgetId="notes" />,
-    treasury: <TreasuryWidget {...widgetProps} widgetId="treasury" />,
-    vehicles: <VehiclesWidget {...widgetProps} widgetId="vehicles" />,
-    cards: <CardsWidget {...widgetProps} widgetId="cards" />
+    info: <InfoWidget {...widgetProps} widgetId="info" {...getWidgetSizeProps('info')} />,
+    combat: <CombatWidget {...widgetProps} widgetId="combat" {...getWidgetSizeProps('combat')} />,
+    stats: <StatsWidget {...widgetProps} widgetId="stats" {...getWidgetSizeProps('stats')} />,
+    weapons: <WeaponsWidget {...widgetProps} widgetId="weapons" {...getWidgetSizeProps('weapons')} />,
+    lifePoints: <LifePointsWidget {...widgetProps} widgetId="lifePoints" {...getWidgetSizeProps('lifePoints')} />,
+    money: <MoneyWidget {...widgetProps} widgetId="money" {...getWidgetSizeProps('money')} />,
+    personality: <PersonalityWidget {...widgetProps} widgetId="personality" {...getWidgetSizeProps('personality')} />,
+    skills: <SkillsWidget {...widgetProps} widgetId="skills" {...getWidgetSizeProps('skills')} />,
+    specialSkills: <SpecialSkillsWidget {...widgetProps} widgetId="specialSkills" {...getWidgetSizeProps('specialSkills')} />,
+    temporarySkills: <TemporarySkillsWidget {...widgetProps} widgetId="temporarySkills" {...getWidgetSizeProps('temporarySkills')} />,
+    possessions: <PossessionsWidget {...widgetProps} widgetId="possessions" {...getWidgetSizeProps('possessions')} />,
+    notes: <NotesWidget {...widgetProps} widgetId="notes" {...getWidgetSizeProps('notes')} />,
+    treasury: <TreasuryWidget {...widgetProps} widgetId="treasury" {...getWidgetSizeProps('treasury')} />,
+    vehicles: <VehiclesWidget {...widgetProps} widgetId="vehicles" {...getWidgetSizeProps('vehicles')} />,
+    cards: <CardsWidget {...widgetProps} widgetId="cards" {...getWidgetSizeProps('cards')} />
   };
 
   return (
@@ -375,7 +415,7 @@ export default function CharacterDashboard({ character, onSave, isEditable = tru
 
       {isEditingLayout && (
         <div className="mb-4 p-3 bg-amber-200 rounded-lg text-amber-900 text-sm text-center">
-          Glissez-déposez les widgets pour les réorganiser
+          Glissez-déposez les widgets pour les réorganiser. Redimensionnez en tirant les bords.
         </div>
       )}
 
@@ -395,23 +435,31 @@ export default function CharacterDashboard({ character, onSave, isEditable = tru
         </div>
       )}
 
-      {/* Dashboard Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {widgetOrder.map((widgetId) => (
-          <div
-            key={widgetId}
-            draggable={isEditingLayout}
-            onDragStart={(e) => handleDragStart(e, widgetId)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, widgetId)}
-            onDragEnd={handleDragEnd}
-            className={`${isEditingLayout ? 'cursor-move' : ''
-              } ${draggedWidget === widgetId ? 'opacity-50' : ''
-              }`}
-          >
-            {widgetComponents[widgetId]}
-          </div>
-        ))}
+      {/* Dashboard Flex Layout */}
+      <div className="flex flex-wrap gap-4">
+        {widgetOrder.map((widgetId) => {
+          const sizes = widgetSizes[widgetId] || {};
+          const widthPercent = sizes.widthPercent || DEFAULT_WIDTH_PERCENT;
+
+          return (
+            <div
+              key={widgetId}
+              draggable={isEditingLayout}
+              onDragStart={(e) => handleDragStart(e, widgetId)}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, widgetId)}
+              onDragEnd={handleDragEnd}
+              className={`${isEditingLayout ? 'cursor-move' : ''} ${draggedWidget === widgetId ? 'opacity-50' : ''}`}
+              style={{
+                width: `calc(${widthPercent}% - 1rem)`,
+                minWidth: '200px',
+                flexShrink: 0
+              }}
+            >
+              {widgetComponents[widgetId]}
+            </div>
+          );
+        })}
       </div>
 
       {/* Modal de transfert */}

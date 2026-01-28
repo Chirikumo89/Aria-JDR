@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useSocket } from '../../context/SocketContext';
 import apiService from '../../services/api';
@@ -6,32 +6,56 @@ import apiService from '../../services/api';
 // Clé pour sauvegarder la position dans localStorage
 const POSITION_STORAGE_KEY = 'dice-history-widget-position';
 
-// Position par défaut
-const DEFAULT_POSITION = { x: window.innerWidth - 280, y: 80 };
+// Limites de position
+const MIN_Y = 70; // Marge pour le header
+const MIN_X = 0;
+const WIDGET_WIDTH = 280;
+const WIDGET_MIN_HEIGHT = 100;
+
+// Position par défaut (en haut à droite, sous le header)
+const getDefaultPosition = () => ({
+  x: Math.max(MIN_X, window.innerWidth - WIDGET_WIDTH - 20),
+  y: MIN_Y
+});
+
+// Fonction pour contraindre la position aux limites de l'écran
+const clampPosition = (x, y) => ({
+  x: Math.min(Math.max(MIN_X, x), window.innerWidth - WIDGET_WIDTH),
+  y: Math.min(Math.max(MIN_Y, y), window.innerHeight - WIDGET_MIN_HEIGHT)
+});
+
+// Charger la position sauvegardée
+const loadSavedPosition = () => {
+  try {
+    const saved = localStorage.getItem(POSITION_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+        return clampPosition(parsed.x, parsed.y);
+      }
+    }
+  } catch (e) {
+    console.error('Erreur chargement position widget:', e);
+  }
+  return getDefaultPosition();
+};
+
+// Sauvegarder la position
+const savePosition = (position) => {
+  try {
+    localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(position));
+  } catch (e) {
+    console.error('Erreur sauvegarde position widget:', e);
+  }
+};
 
 export default function DiceHistoryWidget() {
   const [recentRolls, setRecentRolls] = useState([]);
   const [isExpanded, setIsExpanded] = useState(true);
   const [loading, setLoading] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
-  const [position, setPosition] = useState(() => {
-    // Charger la position sauvegardée
-    try {
-      const saved = localStorage.getItem(POSITION_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Vérifier que la position est dans les limites de l'écran
-        return {
-          x: Math.min(Math.max(0, parsed.x), window.innerWidth - 280),
-          y: Math.min(Math.max(0, parsed.y), window.innerHeight - 100)
-        };
-      }
-    } catch (e) {
-      console.error('Erreur chargement position widget:', e);
-    }
-    return DEFAULT_POSITION;
-  });
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState(loadSavedPosition);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
   const socket = useSocket();
   const mountedRef = useRef(true);
   const widgetRef = useRef(null);
@@ -56,7 +80,7 @@ export default function DiceHistoryWidget() {
     };
 
     loadRecentRolls();
-    
+
     return () => {
       mountedRef.current = false;
     };
@@ -65,21 +89,21 @@ export default function DiceHistoryWidget() {
   // Écouter les nouveaux jets en temps réel
   useEffect(() => {
     mountedRef.current = true;
-    
+
     if (!socket) {
-      console.log('[DiceHistoryWidget] ❌ Pas de socket disponible');
+      console.log('[DiceHistoryWidget] Pas de socket disponible');
       return;
     }
 
-    console.log('[DiceHistoryWidget] ✅ Socket trouvé, connecté:', socket.connected);
+    console.log('[DiceHistoryWidget] Socket trouvé, connecté:', socket.connected);
 
     // Écouter tous les résultats de dés
     const handleDiceResult = (data) => {
-      console.log('[DiceHistoryWidget] 🎲 dice:result reçu:', data.player, data.result, data.type);
-      
+      console.log('[DiceHistoryWidget] dice:result reçu:', data.player, data.result, data.type);
+
       if (data.result !== null && data.result !== undefined && mountedRef.current) {
         // Utiliser savedRoll s'il existe, sinon créer un objet temporaire
-        const rollToAdd = data.savedRoll 
+        const rollToAdd = data.savedRoll
           ? { ...data.savedRoll, playerName: data.savedRoll.playerName || data.player }
           : {
               id: `temp_${Date.now()}_${Math.random()}`,
@@ -88,8 +112,8 @@ export default function DiceHistoryWidget() {
               playerName: data.player,
               createdAt: new Date().toISOString()
             };
-        
-        console.log('[DiceHistoryWidget] ➕ Ajout du jet:', rollToAdd);
+
+        console.log('[DiceHistoryWidget] Ajout du jet:', rollToAdd);
         setRecentRolls(prev => {
           // Éviter les doublons (par ID)
           const filtered = prev.filter(r => r.id !== rollToAdd.id);
@@ -99,7 +123,7 @@ export default function DiceHistoryWidget() {
     };
 
     socket.on('dice:result', handleDiceResult);
-    console.log('[DiceHistoryWidget] 👂 Écoute active sur dice:result');
+    console.log('[DiceHistoryWidget] Écoute active sur dice:result');
 
     return () => {
       mountedRef.current = false;
@@ -107,37 +131,37 @@ export default function DiceHistoryWidget() {
     };
   }, [socket]);
 
-  // Gestion du drag and drop
+  // Gestion du drag - handlers avec useCallback pour éviter les problèmes de closure
+  const handleMouseMove = useCallback((e) => {
+    const newPos = clampPosition(
+      e.clientX - dragOffsetRef.current.x,
+      e.clientY - dragOffsetRef.current.y
+    );
+    setPosition(newPos);
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    // Sauvegarder la position actuelle
+    setPosition(currentPos => {
+      savePosition(currentPos);
+      return currentPos;
+    });
+  }, []);
+
   const handleMouseDown = (e) => {
     // Ne pas déclencher si on clique sur un bouton ou un lien
     if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('a') || e.target.closest('button')) {
       return;
     }
-    
+
     setIsDragging(true);
     const rect = widgetRef.current.getBoundingClientRect();
-    setDragOffset({
+    dragOffsetRef.current = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top
-    });
+    };
     e.preventDefault();
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    
-    const newX = Math.min(Math.max(0, e.clientX - dragOffset.x), window.innerWidth - 280);
-    const newY = Math.min(Math.max(0, e.clientY - dragOffset.y), window.innerHeight - 100);
-    
-    setPosition({ x: newX, y: newY });
-  };
-
-  const handleMouseUp = () => {
-    if (isDragging) {
-      setIsDragging(false);
-      // Sauvegarder la position
-      localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(position));
-    }
   };
 
   // Ajouter/retirer les listeners globaux pour le drag
@@ -147,23 +171,27 @@ export default function DiceHistoryWidget() {
       document.addEventListener('mouseup', handleMouseUp);
       document.body.style.userSelect = 'none';
     }
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       document.body.style.userSelect = '';
     };
-  }, [isDragging, dragOffset]);
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  // Réinitialiser la position si la fenêtre est redimensionnée
+  // Réajuster la position si la fenêtre est redimensionnée
   useEffect(() => {
     const handleResize = () => {
-      setPosition(prev => ({
-        x: Math.min(prev.x, window.innerWidth - 280),
-        y: Math.min(prev.y, window.innerHeight - 100)
-      }));
+      setPosition(prev => {
+        const clamped = clampPosition(prev.x, prev.y);
+        // Sauvegarder si la position a changé
+        if (clamped.x !== prev.x || clamped.y !== prev.y) {
+          savePosition(clamped);
+        }
+        return clamped;
+      });
     };
-    
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -191,42 +219,39 @@ export default function DiceHistoryWidget() {
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     // Si moins de 5 minutes, afficher "à l'instant" ou "il y a X min"
     if (diffMins < 1) return 'à l\'instant';
     if (diffMins < 5) return `il y a ${diffMins}min`;
-    
+
     // Sinon afficher la date et l'heure
     const isToday = date.toDateString() === now.toDateString();
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     const isYesterday = date.toDateString() === yesterday.toDateString();
-    
+
     const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    
+
     if (isToday) {
       return `Aujourd'hui ${timeStr}`;
     } else if (isYesterday) {
       return `Hier ${timeStr}`;
     } else {
-      return date.toLocaleDateString('fr-FR', { 
-        day: '2-digit', 
+      return date.toLocaleDateString('fr-FR', {
+        day: '2-digit',
         month: '2-digit',
-        hour: '2-digit', 
-        minute: '2-digit' 
+        hour: '2-digit',
+        minute: '2-digit'
       });
     }
   };
 
-  // Afficher même sans partie sélectionnée (pour voir les jets en temps réel)
-  // Si pas de partie, afficher quand même le widget avec les jets récents via socket
-
   return (
-    <div 
+    <div
       ref={widgetRef}
       className={`fixed z-40 animate-fadeIn ${isDragging ? 'cursor-grabbing' : ''}`}
-      style={{ 
-        left: `${position.x}px`, 
+      style={{
+        left: `${position.x}px`,
         top: `${position.y}px`,
         touchAction: 'none'
       }}
@@ -234,7 +259,7 @@ export default function DiceHistoryWidget() {
       {/* Widget compact */}
       <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl shadow-lg overflow-hidden transition-all duration-300 w-64">
         {/* Header du widget - zone de drag */}
-        <div 
+        <div
           className={`flex items-center cursor-grab ${isDragging ? 'cursor-grabbing' : ''}`}
           onMouseDown={handleMouseDown}
         >
@@ -252,10 +277,10 @@ export default function DiceHistoryWidget() {
               onClick={() => setIsExpanded(!isExpanded)}
               className="p-1 hover:bg-white/10 rounded transition-colors"
             >
-              <svg 
-                className={`w-4 h-4 text-white/70 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
+              <svg
+                className={`w-4 h-4 text-white/70 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -268,13 +293,13 @@ export default function DiceHistoryWidget() {
         {isExpanded && (
           <div className="max-h-80 overflow-y-auto">
             {/* Lien vers la page complète - EN HAUT */}
-            <Link 
+            <Link
               to="/dice-history"
               className="block px-3 py-2 text-center text-sm text-purple-400 hover:text-purple-300 hover:bg-white/5 transition-colors border-b border-white/10"
             >
               📊 Voir tout l'historique
             </Link>
-            
+
             {loading ? (
               <div className="px-3 py-4 text-center text-white/50 text-sm">
                 <div className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-2"></div>
@@ -288,11 +313,11 @@ export default function DiceHistoryWidget() {
               <div className="divide-y divide-white/10">
                 {recentRolls.map((roll, index) => {
                   // Déterminer le nom à afficher
-                  const displayName = roll.character?.name 
-                    || roll.user?.username 
-                    || roll.playerName 
+                  const displayName = roll.character?.name
+                    || roll.user?.username
+                    || roll.playerName
                     || 'Joueur';
-                  
+
                   return (
                     <div
                       key={roll.id || index}
@@ -312,11 +337,11 @@ export default function DiceHistoryWidget() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className={`text-lg font-bold ${
-                            roll.diceType?.toLowerCase() === 'd100' 
-                              ? roll.result <= 20 
-                                ? 'text-green-400' 
-                                : roll.result >= 80 
-                                  ? 'text-red-400' 
+                            roll.diceType?.toLowerCase() === 'd100'
+                              ? roll.result <= 20
+                                ? 'text-green-400'
+                                : roll.result >= 80
+                                  ? 'text-red-400'
                                   : 'text-white'
                               : 'text-white'
                           }`}>

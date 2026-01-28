@@ -8,10 +8,14 @@ export default function PossessionsWidget({
   characters,
   character,
   onTransferItem,
-  widgetId
+  widgetId,
+  widthPercent,
+  height,
+  onResize,
+  isEditing
 }) {
   return (
-    <DashboardWidget title="Possessions" icon="🎒" color="orange" widgetId={widgetId}>
+    <DashboardWidget title="Possessions" icon="🎒" color="orange" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <div className="space-y-2">
         {canEdit && characters && characters.length > 1 && (
           <p className="text-xs text-orange-700/70 flex items-center gap-1">

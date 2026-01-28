@@ -1,8 +1,8 @@
 import DashboardWidget from '../DashboardWidget';
 
-export default function PersonalityWidget({ formData, onInputChange, canEdit, widgetId }) {
+export default function PersonalityWidget({ formData, onInputChange, canEdit, widgetId, widthPercent, height, onResize, isEditing }) {
   return (
-    <DashboardWidget title="Personnalité" icon="💬" color="purple" widgetId={widgetId}>
+    <DashboardWidget title="Personnalité" icon="💬" color="purple" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <div className="space-y-3">
         <div>
           <label className="block text-xs font-semibold text-purple-900 mb-1">

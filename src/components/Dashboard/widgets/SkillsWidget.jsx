@@ -23,9 +23,9 @@ const SKILLS = [
   { name: "Voler", link: "DEX/INT" }
 ];
 
-export default function SkillsWidget({ formData, onSkillChange, canEdit, widgetId }) {
+export default function SkillsWidget({ formData, onSkillChange, canEdit, widgetId, widthPercent, height, onResize, isEditing }) {
   return (
-    <DashboardWidget title="Compétences de base" icon="📜" color="green" widgetId={widgetId}>
+    <DashboardWidget title="Compétences de base" icon="📜" color="green" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-0.5">
         {SKILLS.map((skill, index) => (
           <div key={index} className="flex items-center gap-1 p-1 bg-white/80 rounded hover:bg-green-50 transition-colors">

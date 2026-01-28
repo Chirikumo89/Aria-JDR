@@ -6,14 +6,18 @@ export default function TemporarySkillsWidget({
   onUpdateTemporarySkill,
   onRemoveTemporarySkill,
   canEdit,
-  widgetId
+  widgetId,
+  widthPercent,
+  height,
+  onResize,
+  isEditing
 }) {
   const hasSkills = formData.temporarySkills?.length > 0;
 
   if (!hasSkills && !canEdit) return null;
 
   return (
-    <DashboardWidget title="Compétences temporaires" icon="✨" color="purple" widgetId={widgetId}>
+    <DashboardWidget title="Compétences temporaires" icon="✨" color="purple" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <div className="space-y-2">
         {canEdit && (
           <button

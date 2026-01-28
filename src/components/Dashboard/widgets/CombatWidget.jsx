@@ -1,9 +1,9 @@
 import DashboardWidget from '../DashboardWidget';
 import { ArmorSelector } from '../../WeaponSelector';
 
-export default function CombatWidget({ formData, onInputChange, canEdit, widgetId, isMJ }) {
+export default function CombatWidget({ formData, onInputChange, canEdit, widgetId, isMJ, widthPercent, height, onResize, isEditing }) {
   return (
-    <DashboardWidget title="Combat & Survie" icon="❤️" color="red" widgetId={widgetId}>
+    <DashboardWidget title="Combat & Survie" icon="❤️" color="red" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <div className="space-y-3">
         <div className="flex items-center gap-2 p-2 bg-white/60 rounded-lg">
           <span className="text-xl">⬆️</span>

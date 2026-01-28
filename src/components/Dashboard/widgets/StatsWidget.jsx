@@ -8,9 +8,9 @@ const STATS = [
   { key: 'charisma', label: 'Charisme', icon: '✨' }
 ];
 
-export default function StatsWidget({ formData, onInputChange, canEdit, widgetId }) {
+export default function StatsWidget({ formData, onInputChange, canEdit, widgetId, widthPercent, height, onResize, isEditing }) {
   return (
-    <DashboardWidget title="Caractéristiques" icon="📊" color="blue" widgetId={widgetId}>
+    <DashboardWidget title="Caractéristiques" icon="📊" color="blue" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <div className="space-y-2">
         {STATS.map(({ key, label, icon }) => (
           <div key={key} className="flex items-center justify-between p-2 bg-white/70 rounded-lg">

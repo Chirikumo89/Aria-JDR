@@ -5,10 +5,14 @@ export default function SpecialSkillsWidget({
   getSpecialSkill,
   onSpecialSkillChange,
   canEdit,
-  widgetId
+  widgetId,
+  widthPercent,
+  height,
+  onResize,
+  isEditing
 }) {
   return (
-    <DashboardWidget title="Compétences spéciales" icon="⭐" color="green" widgetId={widgetId}>
+    <DashboardWidget title="Compétences spéciales" icon="⭐" color="green" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <div className="space-y-1.5">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(index => {
           const skill = getSpecialSkill(index);

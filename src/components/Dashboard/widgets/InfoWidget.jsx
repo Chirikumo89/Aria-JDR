@@ -1,8 +1,8 @@
 import DashboardWidget from '../DashboardWidget';
 
-export default function InfoWidget({ formData, onInputChange, canEdit, widgetId }) {
+export default function InfoWidget({ formData, onInputChange, canEdit, widgetId, widthPercent, height, onResize, isEditing }) {
   return (
-    <DashboardWidget title="Informations" icon="👤" color="amber" widgetId={widgetId}>
+    <DashboardWidget title="Informations" icon="👤" color="amber" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       <div className="space-y-3">
         <div>
           <label className="block text-xs font-semibold text-ink mb-1">Fonction</label>

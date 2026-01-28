@@ -1,15 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
-const SIZE_OPTIONS = [
-  { key: 'auto', label: 'Auto', height: 'auto' },
-  { key: 'xs', label: 'XS', height: '120px' },
-  { key: 's', label: 'S', height: '180px' },
-  { key: 'm', label: 'M', height: '250px' },
-  { key: 'l', label: 'L', height: '350px' },
-  { key: 'xl', label: 'XL', height: '500px' }
-];
-
-const WIDGET_SIZES_KEY = 'aria-widget-sizes';
+const MIN_HEIGHT = 80;
+const MIN_WIDTH_PERCENT = 15; // Largeur minimum en %
+const MAX_WIDTH_PERCENT = 100; // Largeur maximum en %
 
 export default function DashboardWidget({
   title,
@@ -18,40 +11,94 @@ export default function DashboardWidget({
   color = 'amber',
   collapsible = true,
   defaultCollapsed = false,
-  defaultSize = 'auto',
   widgetId,
+  widthPercent = 25,
+  height = 'auto',
+  onResize,
+  isEditing = false,
   className = ''
 }) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
-  const [sizeKey, setSizeKey] = useState(() => {
-    if (widgetId) {
-      const saved = localStorage.getItem(WIDGET_SIZES_KEY);
-      if (saved) {
-        const sizes = JSON.parse(saved);
-        return sizes[widgetId] || defaultSize;
-      }
-    }
-    return defaultSize;
-  });
+  const containerRef = useRef(null);
+  const isResizingRef = useRef(false);
+  const resizeDirectionRef = useRef(null);
+  const startPosRef = useRef({ x: 0, y: 0 });
+  const startDimensionsRef = useRef({ width: 0, height: 0, widthPercent: 25 });
+  const parentWidthRef = useRef(0);
 
-  // Sauvegarder la taille quand elle change
-  useEffect(() => {
-    if (widgetId) {
-      const saved = localStorage.getItem(WIDGET_SIZES_KEY);
-      const sizes = saved ? JSON.parse(saved) : {};
-      sizes[widgetId] = sizeKey;
-      localStorage.setItem(WIDGET_SIZES_KEY, JSON.stringify(sizes));
-    }
-  }, [sizeKey, widgetId]);
-
-  const cycleSize = (e) => {
+  const handleMouseDown = useCallback((e, direction) => {
+    e.preventDefault();
     e.stopPropagation();
-    const currentIndex = SIZE_OPTIONS.findIndex(s => s.key === sizeKey);
-    const nextIndex = (currentIndex + 1) % SIZE_OPTIONS.length;
-    setSizeKey(SIZE_OPTIONS[nextIndex].key);
-  };
+    isResizingRef.current = true;
+    resizeDirectionRef.current = direction;
+    startPosRef.current = { x: e.clientX, y: e.clientY };
 
-  const currentSize = SIZE_OPTIONS.find(s => s.key === sizeKey) || SIZE_OPTIONS[0];
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      // Remonter au conteneur flex (grand-parent: widget -> wrapper div -> flex container)
+      const flexContainer = containerRef.current.parentElement?.parentElement;
+      const flexRect = flexContainer?.getBoundingClientRect();
+      // Utiliser la largeur du flex container moins le padding (32px = p-4 * 2)
+      parentWidthRef.current = (flexRect?.width || window.innerWidth) - 32;
+      startDimensionsRef.current = {
+        width: rect.width,
+        height: rect.height,
+        widthPercent: widthPercent
+      };
+    }
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [widthPercent]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isResizingRef.current || !onResize) return;
+
+    const deltaX = e.clientX - startPosRef.current.x;
+    const deltaY = e.clientY - startPosRef.current.y;
+    const direction = resizeDirectionRef.current;
+
+    let newWidthPercent = startDimensionsRef.current.widthPercent;
+    let newHeight = typeof height === 'number' ? height : null;
+
+    // Redimensionnement horizontal -> change la largeur en %
+    if (direction.includes('e') || direction.includes('w')) {
+      const delta = direction.includes('e') ? deltaX : -deltaX;
+      // Calculer la nouvelle largeur cible en pixels
+      const newWidthPx = startDimensionsRef.current.width + delta;
+      // Convertir en pourcentage (en tenant compte du gap de 16px)
+      newWidthPercent = ((newWidthPx + 16) / parentWidthRef.current) * 100;
+      // Limiter aux bornes
+      newWidthPercent = Math.max(
+        MIN_WIDTH_PERCENT,
+        Math.min(MAX_WIDTH_PERCENT, newWidthPercent)
+      );
+      // Arrondir à 1% près pour éviter les valeurs trop précises
+      newWidthPercent = Math.round(newWidthPercent);
+    }
+
+    // Redimensionnement vertical -> change la hauteur
+    if (direction.includes('s') || direction.includes('n')) {
+      const delta = direction.includes('s') ? deltaY : -deltaY;
+      newHeight = Math.max(MIN_HEIGHT, Math.round(startDimensionsRef.current.height + delta));
+    }
+
+    onResize(widgetId, { widthPercent: newWidthPercent, height: newHeight });
+  }, [onResize, widgetId, height]);
+
+  const handleMouseUp = useCallback(() => {
+    isResizingRef.current = false;
+    resizeDirectionRef.current = null;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  }, [handleMouseMove]);
+
+  const resetSize = (e) => {
+    e.stopPropagation();
+    if (onResize) {
+      onResize(widgetId, { widthPercent: 25, height: null });
+    }
+  };
 
   const colorClasses = {
     amber: {
@@ -118,12 +165,19 @@ export default function DashboardWidget({
 
   const colors = colorClasses[color] || colorClasses.amber;
 
-  const contentStyle = currentSize.height !== 'auto'
-    ? { maxHeight: currentSize.height, height: currentSize.height }
-    : {};
+  const containerStyle = {
+    height: typeof height === 'number' ? `${height}px` : undefined,
+    minHeight: MIN_HEIGHT
+  };
+
+  const hasCustomSize = widthPercent !== 25 || (typeof height === 'number');
 
   return (
-    <div className={`flex flex-col rounded-xl bg-gradient-to-br ${colors.bg} border-2 ${colors.border} shadow-md overflow-hidden ${className}`}>
+    <div
+      ref={containerRef}
+      style={containerStyle}
+      className={`relative flex flex-col rounded-xl bg-gradient-to-br ${colors.bg} border-2 ${colors.border} shadow-md overflow-hidden ${className}`}
+    >
       {/* Header - zone de drag */}
       <div
         className={`widget-drag-handle flex items-center justify-between ${colors.header} text-white px-3 py-2 cursor-move select-none`}
@@ -133,15 +187,23 @@ export default function DashboardWidget({
           <h3 className="font-bold text-sm truncate">{title}</h3>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          {/* Bouton taille */}
-          <button
-            type="button"
-            onClick={cycleSize}
-            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${colors.headerHover} transition-colors bg-white/20`}
-            title={`Taille: ${currentSize.label} (cliquer pour changer)`}
-          >
-            {currentSize.label}
-          </button>
+          {/* Indicateur de largeur si personnalisée - uniquement en mode édition */}
+          {isEditing && widthPercent !== 25 && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20">
+              {Math.round(widthPercent)}%
+            </span>
+          )}
+          {/* Bouton reset taille si personnalisée - uniquement en mode édition */}
+          {isEditing && hasCustomSize && (
+            <button
+              type="button"
+              onClick={resetSize}
+              className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${colors.headerHover} transition-colors bg-white/20`}
+              title="Réinitialiser la taille"
+            >
+              ↺
+            </button>
+          )}
           {collapsible && (
             <button
               type="button"
@@ -172,12 +234,40 @@ export default function DashboardWidget({
 
       {/* Content avec scroll si nécessaire */}
       {!isCollapsed && (
-        <div
-          className="flex-1 overflow-auto p-3"
-          style={contentStyle}
-        >
+        <div className="flex-1 overflow-auto p-3">
           {children}
         </div>
+      )}
+
+      {/* Poignées de redimensionnement - uniquement en mode édition */}
+      {isEditing && (
+        <>
+          {/* Gauche */}
+          <div
+            onMouseDown={(e) => handleMouseDown(e, 'w')}
+            className="absolute top-0 left-0 w-2 h-full cursor-ew-resize hover:bg-amber-400/30 transition-colors z-10"
+          />
+          {/* Droite */}
+          <div
+            onMouseDown={(e) => handleMouseDown(e, 'e')}
+            className="absolute top-0 right-0 w-2 h-full cursor-ew-resize hover:bg-amber-400/30 transition-colors z-10"
+          />
+          {/* Bas */}
+          <div
+            onMouseDown={(e) => handleMouseDown(e, 's')}
+            className="absolute bottom-0 left-2 right-2 h-2 cursor-ns-resize hover:bg-amber-400/30 transition-colors z-10"
+          />
+          {/* Coin bas-gauche */}
+          <div
+            onMouseDown={(e) => handleMouseDown(e, 'sw')}
+            className="absolute bottom-0 left-0 w-4 h-4 cursor-nesw-resize hover:bg-amber-400/50 transition-colors z-20"
+          />
+          {/* Coin bas-droite */}
+          <div
+            onMouseDown={(e) => handleMouseDown(e, 'se')}
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize hover:bg-amber-400/50 transition-colors z-20"
+          />
+        </>
       )}
     </div>
   );

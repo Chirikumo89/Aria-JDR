@@ -1,11 +1,11 @@
 import DashboardWidget from '../DashboardWidget';
 import VehicleInventory from '../../VehicleInventory';
 
-export default function VehiclesWidget({ character, canEdit, widgetId }) {
+export default function VehiclesWidget({ character, canEdit, widgetId, widthPercent, height, onResize, isEditing }) {
   const gameId = character?.gameId || character?.game?.id;
 
   return (
-    <DashboardWidget title="Véhicules & Cales" icon="🚢" color="cyan" widgetId={widgetId}>
+    <DashboardWidget title="Véhicules & Cales" icon="🚢" color="cyan" widgetId={widgetId} widthPercent={widthPercent} height={height} onResize={onResize} isEditing={isEditing}>
       {gameId ? (
         <VehicleInventory gameId={gameId} disabled={!canEdit} />
       ) : (
