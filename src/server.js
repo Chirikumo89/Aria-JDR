@@ -392,31 +392,35 @@ app.get("/api/games/:id/characters", async (req, res) => {
       }
     });
     
-    // Parser les données JSON pour possessions
+    // Parser les données JSON pour possessions, notes et temporarySkills
     const processedCharacters = characters.map(character => {
       let possessions = [];
       let notes = [];
-      
+      let temporarySkills = [];
+
       try {
         possessions = character.possessions ? JSON.parse(character.possessions) : [];
       } catch (e) {
-        console.warn('Erreur parsing possessions pour personnage', character.id, ':', e.message);
-        console.warn('Valeur possessions:', character.possessions);
         possessions = [];
       }
-      
+
       try {
         notes = character.notes ? JSON.parse(character.notes) : [];
       } catch (e) {
-        console.warn('Erreur parsing notes pour personnage', character.id, ':', e.message);
-        console.warn('Valeur notes:', character.notes);
         notes = [];
       }
-      
+
+      try {
+        temporarySkills = character.temporarySkills ? JSON.parse(character.temporarySkills) : [];
+      } catch (e) {
+        temporarySkills = [];
+      }
+
       return {
         ...character,
         possessions,
-        notes
+        notes,
+        temporarySkills
       };
     });
     
@@ -524,13 +528,14 @@ app.get("/api/characters/:id", async (req, res) => {
       return res.status(404).json({ error: "Personnage non trouvé" });
     }
     
-    // Parser les données JSON pour possessions
+    // Parser les données JSON pour possessions, notes et temporarySkills
     const processedCharacter = {
       ...character,
       possessions: character.possessions ? JSON.parse(character.possessions) : [],
-      notes: character.notes ? JSON.parse(character.notes) : []
+      notes: character.notes ? JSON.parse(character.notes) : [],
+      temporarySkills: character.temporarySkills ? JSON.parse(character.temporarySkills) : []
     };
-    
+
     res.json(processedCharacter);
   } catch (error) {
     console.error("Erreur lors de la récupération du personnage:", error);
@@ -542,32 +547,103 @@ app.put("/api/characters/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const characterData = req.body;
-    
-    // Convertir les tableaux en JSON pour la sauvegarde
-    const processedData = {
-      ...characterData,
-      possessions: Array.isArray(characterData.possessions) 
-        ? JSON.stringify(characterData.possessions) 
-        : characterData.possessions,
-      notes: Array.isArray(characterData.notes) 
-        ? JSON.stringify(characterData.notes) 
-        : characterData.notes
-    };
-    
+
+    // Filtrer explicitement les champs autorisés pour éviter les erreurs Prisma
+    const processedData = {};
+
+    // Champs texte simples
+    if (characterData.name !== undefined) processedData.name = characterData.name;
+    if (characterData.function !== undefined) processedData.function = characterData.function;
+    if (characterData.playerName !== undefined) processedData.playerName = characterData.playerName;
+    if (characterData.weapon1 !== undefined) processedData.weapon1 = characterData.weapon1;
+    if (characterData.damage1 !== undefined) processedData.damage1 = characterData.damage1;
+    if (characterData.weapon2 !== undefined) processedData.weapon2 = characterData.weapon2;
+    if (characterData.damage2 !== undefined) processedData.damage2 = characterData.damage2;
+    if (characterData.weapon3 !== undefined) processedData.weapon3 = characterData.weapon3;
+    if (characterData.damage3 !== undefined) processedData.damage3 = characterData.damage3;
+    if (characterData.awesomeBecause !== undefined) processedData.awesomeBecause = characterData.awesomeBecause;
+    if (characterData.societyProblems !== undefined) processedData.societyProblems = characterData.societyProblems;
+
+    // Champs numériques
+    if (characterData.age !== undefined) processedData.age = characterData.age;
+    if (characterData.lifePoints !== undefined) processedData.lifePoints = characterData.lifePoints;
+    if (characterData.currentLifePoints !== undefined) processedData.currentLifePoints = characterData.currentLifePoints;
+    if (characterData.wounds !== undefined) processedData.wounds = characterData.wounds;
+    if (characterData.protection !== undefined) processedData.protection = characterData.protection;
+    if (characterData.strength !== undefined) processedData.strength = characterData.strength;
+    if (characterData.dexterity !== undefined) processedData.dexterity = characterData.dexterity;
+    if (characterData.endurance !== undefined) processedData.endurance = characterData.endurance;
+    if (characterData.intelligence !== undefined) processedData.intelligence = characterData.intelligence;
+    if (characterData.charisma !== undefined) processedData.charisma = characterData.charisma;
+    if (characterData.reflexes !== undefined) processedData.reflexes = characterData.reflexes;
+    if (characterData.closeCombat !== undefined) processedData.closeCombat = characterData.closeCombat;
+    if (characterData.dodge !== undefined) processedData.dodge = characterData.dodge;
+
+    // Champs monétaires
+    if (characterData.crowns !== undefined) processedData.crowns = characterData.crowns;
+    if (characterData.orbs !== undefined) processedData.orbs = characterData.orbs;
+    if (characterData.scepters !== undefined) processedData.scepters = characterData.scepters;
+    if (characterData.kings !== undefined) processedData.kings = characterData.kings;
+
+    // Champs JSON (convertir les tableaux en JSON string)
+    if (characterData.skills !== undefined) processedData.skills = characterData.skills;
+    if (characterData.specialSkills !== undefined) processedData.specialSkills = characterData.specialSkills;
+
+    if (characterData.possessions !== undefined) {
+      processedData.possessions = Array.isArray(characterData.possessions)
+        ? JSON.stringify(characterData.possessions)
+        : characterData.possessions;
+    }
+
+    if (characterData.notes !== undefined) {
+      processedData.notes = Array.isArray(characterData.notes)
+        ? JSON.stringify(characterData.notes)
+        : characterData.notes;
+    }
+
+    if (characterData.temporarySkills !== undefined) {
+      processedData.temporarySkills = Array.isArray(characterData.temporarySkills)
+        ? JSON.stringify(characterData.temporarySkills)
+        : characterData.temporarySkills;
+    }
+
     console.log("Données reçues pour mise à jour:", processedData);
     console.log("currentLifePoints reçu:", characterData.currentLifePoints);
-    
-    const character = await prisma.character.update({
-      where: { id },
-      data: processedData
-    });
-    
+
+    let character;
+    try {
+      character = await prisma.character.update({
+        where: { id },
+        data: processedData
+      });
+    } catch (prismaError) {
+      // Si l'erreur est "Unknown argument", retirer le champ problématique et réessayer
+      if (prismaError.message && prismaError.message.includes('Unknown argument')) {
+        const match = prismaError.message.match(/Unknown argument `?(\w+)`?/);
+        if (match) {
+          const unknownField = match[1];
+          console.warn(`Champ inconnu détecté: ${unknownField}, réessai sans ce champ...`);
+          delete processedData[unknownField];
+
+          // Réessayer sans le champ problématique
+          character = await prisma.character.update({
+            where: { id },
+            data: processedData
+          });
+        } else {
+          throw prismaError;
+        }
+      } else {
+        throw prismaError;
+      }
+    }
+
     // Émettre l'événement WebSocket pour notifier les MJ
     emitToAll('characterUpdated', character);
-    
+
     console.log("Personnage mis à jour avec succès:", character);
     console.log("currentLifePoints sauvegardé:", character.currentLifePoints);
-    
+
     res.json(character);
   } catch (error) {
     console.error("Erreur lors de la mise à jour du personnage:", error);
@@ -2282,7 +2358,849 @@ app.get('/', (req, res) => {
   }
 });
 
-// Route de fallback pour toutes les autres routes SPA
+// ========== ROUTES POUR LES COMBATS ==========
+
+// Créer un nouveau combat
+app.post("/api/games/:id/combats", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['user-id'];
+    
+    console.log('[API] POST /api/games/:id/combats');
+    console.log('[API] gameId:', id);
+    console.log('[API] userId:', userId);
+    console.log('[API] headers:', req.headers);
+    
+    if (!userId) {
+      console.log('[API] ❌ Utilisateur non authentifié');
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'mj') {
+      console.log('[API] ❌ Utilisateur pas MJ');
+      return res.status(403).json({ error: "Seul le Maître de Jeu peut créer des combats" });
+    }
+    
+    // Vérifier que la partie existe
+    const game = await prisma.game.findUnique({ where: { id } });
+    if (!game) {
+      console.log('[API] ❌ Partie non trouvée');
+      return res.status(404).json({ error: "Partie non trouvée" });
+    }
+    
+    // Récupérer tous les personnages de la partie
+    const characters = await prisma.character.findMany({
+      where: { gameId: id }
+    });
+    
+    console.log('[API] 📋 Personnages trouvés:', characters.length);
+    
+    // Créer le combat
+    const combat = await prisma.combat.create({
+      data: {
+        gameId: id,
+        isActive: true,
+        currentRound: 1,
+        // Ajouter les personnages au combat
+        combatants: {
+          create: characters.map(char => ({
+            characterId: char.id,
+            xPos: Math.floor(Math.random() * 10),
+            yPos: Math.floor(Math.random() * 10),
+            order: 0
+          }))
+        }
+      },
+      include: {
+        combatants: {
+          include: {
+            character: {
+              select: { id: true, name: true, playerName: true, lifePoints: true, currentLifePoints: true, weapon1: true, damage1: true }
+            }
+          }
+        },
+        enemies: true
+      }
+    });
+    
+    console.log('[API] ✅ Combat créé:', combat.id);
+    
+    // Émettre l'événement WebSocket
+    emitToAll('combatStarted', { gameId: id, combat });
+    
+    res.json(combat);
+  } catch (error) {
+    console.error("[API] ❌ Erreur lors de la création du combat:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// ========== INITIATIVE ==========
+
+// Lancer l'initiative pour un combattant (personnage)
+app.post("/api/combats/:combatId/initiative/:combatantId", async (req, res) => {
+  try {
+    const { combatId, combatantId } = req.params;
+    
+    console.log(`[API] POST Initiative pour combattant ${combatantId}`);
+    
+    // Récupérer le combattant
+    const combatant = await prisma.combatCombatant.findUnique({
+      where: { id: combatantId },
+      include: { character: true, combat: true }
+    });
+    
+    if (!combatant) {
+      return res.status(404).json({ error: "Combattant non trouvé" });
+    }
+    
+    // Vérifier que le combattant appartient au combat
+    if (combatant.combatId !== combatId) {
+      return res.status(400).json({ error: "Combattant n'appartient pas à ce combat" });
+    }
+    
+    // Lancer 1D100
+    const initiativeRoll = Math.floor(Math.random() * 100) + 1;
+    const reflexesScore = combatant.character.reflexes || 50;
+    const passed = initiativeRoll <= reflexesScore;
+    
+    console.log(`[API] Initiative: D100=${initiativeRoll}, Réflexes=${reflexesScore}, Réussi=${passed}`);
+    
+    // Mettre à jour le combattant
+    const updated = await prisma.combatCombatant.update({
+      where: { id: combatantId },
+      data: {
+        initiativeRoll,
+        reflexesScore,
+        passed
+      },
+      include: { character: true }
+    });
+    
+    // Émettre l'événement WebSocket
+    emitToAll('initiativeRolled', {
+      gameId: combatant.combat.gameId,
+      combatId,
+      combatantId,
+      characterName: combatant.character.name,
+      roll: initiativeRoll,
+      reflexes: reflexesScore,
+      passed
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("[API] ❌ Erreur lors du lancer d'initiative:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// Lancer l'initiative pour un ennemi
+app.post("/api/combats/:combatId/initiative-enemy/:enemyId", async (req, res) => {
+  try {
+    const { combatId, enemyId } = req.params;
+    
+    console.log(`[API] POST Initiative pour ennemi ${enemyId}`);
+    
+    // Récupérer l'ennemi
+    const enemy = await prisma.enemy.findUnique({
+      where: { id: enemyId }
+    });
+    
+    if (!enemy) {
+      return res.status(404).json({ error: "Ennemi non trouvé" });
+    }
+    
+    // Vérifier que l'ennemi appartient au combat
+    if (enemy.combatId !== combatId) {
+      return res.status(400).json({ error: "Ennemi n'appartient pas à ce combat" });
+    }
+    
+    // Lancer 1D100
+    const initiativeRoll = Math.floor(Math.random() * 100) + 1;
+    const reflexesScore = enemy.reflexes || 50;
+    const passed = initiativeRoll <= reflexesScore;
+    
+    console.log(`[API] Initiative: D100=${initiativeRoll}, Réflexes=${reflexesScore}, Réussi=${passed}`);
+    
+    // Mettre à jour l'ennemi
+    const updated = await prisma.enemy.update({
+      where: { id: enemyId },
+      data: {
+        initiativeRoll,
+        passed
+      }
+    });
+    
+    // Récupérer le combat pour obtenir gameId
+    const combat = await prisma.combat.findUnique({ where: { id: combatId } });
+    
+    // Émettre l'événement WebSocket
+    emitToAll('initiativeRolled', {
+      gameId: combat.gameId,
+      combatId,
+      enemyId,
+      enemyName: enemy.name,
+      roll: initiativeRoll,
+      reflexes: reflexesScore,
+      passed
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("[API] ❌ Erreur lors du lancer d'initiative ennemi:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// Calculer et organiser l'ordre d'initiative du combat
+app.post("/api/combats/:combatId/calculate-initiative", async (req, res) => {
+  try {
+    const { combatId } = req.params;
+    
+    console.log(`[API] POST Calculer l'initiative pour le combat ${combatId}`);
+    
+    // Récupérer le combat avec tous les combattants et ennemis
+    const combat = await prisma.combat.findUnique({
+      where: { id: combatId },
+      include: {
+        combatants: { include: { character: true } },
+        enemies: true
+      }
+    });
+    
+    if (!combat) {
+      return res.status(404).json({ error: "Combat non trouvé" });
+    }
+    
+    // Créer un tableau avec tous les participants
+    const participants = [];
+    
+    // Ajouter les personnages
+    combat.combatants.forEach(c => {
+      participants.push({
+        type: 'character',
+        id: c.id,
+        name: c.character.name,
+        roll: c.initiativeRoll || 0,
+        passed: c.passed || true
+      });
+    });
+    
+    // Ajouter les ennemis
+    combat.enemies.forEach(e => {
+      participants.push({
+        type: 'enemy',
+        id: e.id,
+        name: e.name,
+        roll: e.initiativeRoll || 0,
+        passed: e.passed || true
+      });
+    });
+    
+    // Trier selon les règles:
+    // 1. Les réussis d'abord (par roll croissant)
+    // 2. Les ratés à la fin (par roll croissant)
+    participants.sort((a, b) => {
+      if (a.passed && b.passed) return a.roll - b.roll;  // Réussis: ordre croissant
+      if (!a.passed && !b.passed) return a.roll - b.roll; // Ratés: ordre croissant
+      return a.passed ? -1 : 1;  // Réussis avant ratés
+    });
+    
+    // Attribuer les ordres (à partir de 1)
+    const updates = [];
+    participants.forEach((p, index) => {
+      if (p.type === 'character') {
+        updates.push(
+          prisma.combatCombatant.update({
+            where: { id: p.id },
+            data: { order: index + 1 }
+          })
+        );
+      } else {
+        updates.push(
+          prisma.enemy.update({
+            where: { id: p.id },
+            data: { order: index + 1 }
+          })
+        );
+      }
+    });
+    
+    await Promise.all(updates);
+    
+    console.log(`[API] ✅ Initiative calculée. Ordre:`, participants.map((p, i) => `${i + 1}. ${p.name}`));
+    
+    res.json({ success: true, order: participants });
+  } catch (error) {
+    console.error("[API] ❌ Erreur lors du calcul d'initiative:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// ============ SYSTÈME D'ACTIONS ============
+
+// Effectuer une attaque
+app.post("/api/combats/:combatId/attack", async (req, res) => {
+  try {
+    const { combatId } = req.params;
+    const { actorId, targetId, actorType, targetType, weaponIndex = 0 } = req.body;
+    
+    console.log(`[API] POST Attaque - Attaquant: ${actorId} (${actorType}), Cible: ${targetId} (${targetType})`);
+    
+    // Récupérer le combat
+    const combat = await prisma.combat.findUnique({
+      where: { id: combatId },
+      include: {
+        combatants: { include: { character: true } },
+        enemies: true
+      }
+    });
+    
+    if (!combat) return res.status(404).json({ error: "Combat non trouvé" });
+    
+    // Récupérer l'attaquant et ses stats de combat
+    let attacker, attackerCombatSkill = 50;
+    if (actorType === 'character') {
+      const combatant = combat.combatants.find(c => c.id === actorId);
+      if (!combatant) return res.status(404).json({ error: "Attaquant non trouvé" });
+      attacker = combatant;
+      attackerCombatSkill = combatant.character.closeCombat || 50;
+    } else {
+      attacker = combat.enemies.find(e => e.id === actorId);
+      if (!attacker) return res.status(404).json({ error: "Ennemi attaquant non trouvé" });
+      attackerCombatSkill = attacker.reflexes || 50;
+    }
+    
+    // Récupérer la cible et ses stats de combat
+    let target, targetCombatSkill = 50, targetArmor = 0, targetWeaponDamage = "1d6";
+    if (targetType === 'character') {
+      const combatant = combat.combatants.find(c => c.id === targetId);
+      if (!combatant) return res.status(404).json({ error: "Cible non trouvée" });
+      target = combatant;
+      targetCombatSkill = combatant.character.closeCombat || 50;
+      targetArmor = combatant.character.protection || 0;
+      // Utiliser l'arme 1 par défaut
+      targetWeaponDamage = combatant.character.damage1 || "1d6";
+    } else {
+      target = combat.enemies.find(e => e.id === targetId);
+      if (!target) return res.status(404).json({ error: "Ennemi cible non trouvé" });
+      targetCombatSkill = target.reflexes || 50;
+      targetArmor = target.armor || 0;
+      targetWeaponDamage = target.weaponDamage || "1d6";
+    }
+    
+    // Lance d'attaque (D100)
+    const attackRoll = Math.floor(Math.random() * 100) + 1;
+    const attackSuccess = attackRoll <= attackerCombatSkill;
+    
+    // Déterminer si critique ou fumble
+    const isCritical = attackRoll <= 5;
+    const isFumble = attackRoll >= 96;
+    
+    let damage = 0;
+    let defenseRoll = 0;
+    let defenseSuccess = false;
+    
+    if (attackSuccess || isCritical) {
+      // L'attaque touche - la cible peut se défendre
+      defenseRoll = Math.floor(Math.random() * 100) + 1;
+      defenseSuccess = defenseRoll <= targetCombatSkill;
+      
+      if (!defenseSuccess) {
+        // La défense échoue - calculer les dégâts
+        damage = rollDice(targetWeaponDamage);
+        
+        // Si critique, doubler les dégâts (et ignorer l'armure pour le second d20)
+        if (isCritical) {
+          damage = damage * 2;
+        }
+        
+        // Soustraire l'armure
+        damage = Math.max(0, damage - targetArmor);
+      }
+    }
+    
+    // Créer l'action dans la base de données
+    const action = await prisma.combatAction.create({
+      data: {
+        combatId,
+        round: combat.currentRound,
+        actionType: 'attack',
+        actionResult: attackSuccess || isCritical ? (defenseSuccess ? 'defended' : 'hit') : 'miss',
+        attackRoll,
+        defenseRoll: defenseSuccess ? defenseRoll : null,
+        damage: damage > 0 ? damage : null,
+        isCritical,
+        isFumble,
+        description: `${attacker.id === actorId ? (actorType === 'character' ? attacker.character?.name : attacker.name) : 'Acteur inconnu'} attaque ${target.id === targetId ? (targetType === 'character' ? target.character?.name : target.name) : 'Cible inconnue'}`,
+        actorId: `${actorType}-${actorId}`,
+        targetId: `${targetType}-${targetId}`
+      }
+    });
+    
+    // Mettre à jour la santé de la cible si elle a reçu des dégâts
+    if (damage > 0 && targetType === 'character') {
+      await prisma.combatCombatant.update({
+        where: { id: targetId },
+        data: { currentHealth: (target.currentHealth || 0) - damage }
+      });
+    } else if (damage > 0 && targetType === 'enemy') {
+      await prisma.enemy.update({
+        where: { id: targetId },
+        data: { currentLife: (target.currentLife || 0) - damage }
+      });
+    }
+    
+    console.log(`[API] ✅ Attaque résolue: ${attackRoll} <= ${attackerCombatSkill} = ${attackSuccess}. Dégâts: ${damage}`);
+    
+    res.json({
+      success: true,
+      action: {
+        attackRoll,
+        attackSuccess,
+        isCritical,
+        isFumble,
+        defenseRoll,
+        defenseSuccess,
+        damage
+      }
+    });
+  } catch (error) {
+    console.error("[API] ❌ Erreur lors de l'attaque:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// Fonction utilitaire pour lancer les dés
+function rollDice(diceNotation) {
+  // Parse notation comme "1d6", "2d6+3", "1d4", etc.
+  const match = diceNotation.match(/(\d+)d(\d+)(?:\+(\d+))?/i);
+  if (!match) return 0;
+  
+  const numDice = parseInt(match[1]);
+  const diceSize = parseInt(match[2]);
+  const bonus = parseInt(match[3]) || 0;
+  
+  let total = bonus;
+  for (let i = 0; i < numDice; i++) {
+    total += Math.floor(Math.random() * diceSize) + 1;
+  }
+  return total;
+}
+
+// Passer au tour suivant
+app.post("/api/combats/:combatId/next-turn", async (req, res) => {
+  try {
+    const { combatId } = req.params;
+    
+    console.log(`[API] POST Prochain tour pour le combat ${combatId}`);
+    
+    const combat = await prisma.combat.findUnique({
+      where: { id: combatId },
+      include: {
+        combatants: { include: { character: true } },
+        enemies: true
+      }
+    });
+    
+    if (!combat) return res.status(404).json({ error: "Combat non trouvé" });
+    
+    // Récupérer le prochain participant qui n'a pas agi
+    const allParticipants = [
+      ...combat.combatants.map(c => ({ type: 'character', id: c.id, order: c.order, hasActed: c.hasActed, name: c.character.name })),
+      ...combat.enemies.map(e => ({ type: 'enemy', id: e.id, order: e.order, hasActed: e.hasActed, name: e.name }))
+    ];
+    
+    // Trier par ordre d'initiative
+    allParticipants.sort((a, b) => a.order - b.order);
+    
+    // Trouver le premier qui n'a pas agi
+    let nextTurn = allParticipants.find(p => !p.hasActed);
+    
+    // Si tous ont agi, réinitialiser et recommencer (nouveau round)
+    if (!nextTurn) {
+      combat.currentRound++;
+      
+      // Réinitialiser hasActed pour tous
+      const resetUpdates = [];
+      combat.combatants.forEach(c => {
+        resetUpdates.push(prisma.combatCombatant.update({
+          where: { id: c.id },
+          data: { hasActed: false }
+        }));
+      });
+      combat.enemies.forEach(e => {
+        resetUpdates.push(prisma.enemy.update({
+          where: { id: e.id },
+          data: { hasActed: false }
+        }));
+      });
+      
+      await Promise.all(resetUpdates);
+      nextTurn = allParticipants[0];
+    }
+    
+    // Marquer le participant actuel comme ayant agi
+    if (nextTurn.type === 'character') {
+      await prisma.combatCombatant.update({
+        where: { id: nextTurn.id },
+        data: { hasActed: true }
+      });
+    } else {
+      await prisma.enemy.update({
+        where: { id: nextTurn.id },
+        data: { hasActed: true }
+      });
+    }
+    
+    console.log(`[API] ✅ Prochain tour: ${nextTurn.name} (${nextTurn.type})`);
+    
+    res.json({
+      success: true,
+      currentRound: combat.currentRound,
+      nextTurn
+    });
+  } catch (error) {
+    console.error("[API] ❌ Erreur lors du prochain tour:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// Récupérer le combat actif d'une partie
+app.get("/api/games/:id/combat", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const combat = await prisma.combat.findFirst({
+      where: { 
+        gameId: id,
+        isActive: true
+      },
+      include: {
+        combatants: {
+          include: {
+            character: {
+              select: { 
+                id: true, 
+                name: true, 
+                playerName: true, 
+                lifePoints: true, 
+                currentLifePoints: true,
+                weapon1: true,
+                damage1: true,
+                weapon2: true,
+                damage2: true,
+                weapon3: true,
+                damage3: true
+              }
+            }
+          }
+        },
+        enemies: true
+      }
+    });
+    
+    if (!combat) {
+      return res.status(404).json({ error: "Aucun combat actif" });
+    }
+    
+    res.json(combat);
+  } catch (error) {
+    console.error("Erreur lors de la récupération du combat:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Terminer un combat
+app.delete("/api/combats/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seul le Maître de Jeu peut terminer les combats" });
+    }
+    
+    const combat = await prisma.combat.findUnique({
+      where: { id },
+      select: { gameId: true }
+    });
+    
+    if (!combat) {
+      return res.status(404).json({ error: "Combat non trouvé" });
+    }
+    
+    // Marquer le combat comme inactif au lieu de le supprimer (pour historique)
+    const updatedCombat = await prisma.combat.update({
+      where: { id },
+      data: { isActive: false }
+    });
+    
+    emitToAll('combatEnded', { gameId: combat.gameId, combatId: id });
+    
+    res.json({ message: "Combat terminé avec succès" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression du combat:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Déplacer un personnage ou un ennemi dans le combat
+app.put("/api/combats/:combatId/move", async (req, res) => {
+  try {
+    const { combatId } = req.params;
+    const { characterId, enemyId, xPos, yPos } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seul le Maître de Jeu peut déplacer les combattants" });
+    }
+    
+    const combat = await prisma.combat.findUnique({
+      where: { id: combatId },
+      select: { gameId: true }
+    });
+    
+    if (!combat) {
+      return res.status(404).json({ error: "Combat non trouvé" });
+    }
+    
+    let updatedData = {};
+    
+    if (characterId) {
+      // Mettre à jour la position du combattant
+      updatedData = await prisma.combatCombatant.update({
+        where: {
+          combatId_characterId: {
+            combatId: combatId,
+            characterId: characterId
+          }
+        },
+        data: { xPos, yPos },
+        include: {
+          character: {
+            select: { id: true, name: true, playerName: true }
+          }
+        }
+      });
+    } else if (enemyId) {
+      // Mettre à jour la position de l'ennemi
+      updatedData = await prisma.enemy.update({
+        where: { id: enemyId },
+        data: { xPos, yPos }
+      });
+    }
+    
+    // Émettre l'événement WebSocket
+    emitToAll('combatantMoved', { gameId: combat.gameId, combatId, data: updatedData });
+    
+    res.json(updatedData);
+  } catch (error) {
+    console.error("Erreur lors du déplacement:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// Retirer un personnage du combat
+app.delete("/api/combats/:combatId/combatants/:characterId", async (req, res) => {
+  try {
+    const { combatId, characterId } = req.params;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seul le Maître de Jeu peut retirer les combattants" });
+    }
+    
+    const combat = await prisma.combat.findUnique({
+      where: { id: combatId },
+      select: { gameId: true }
+    });
+    
+    if (!combat) {
+      return res.status(404).json({ error: "Combat non trouvé" });
+    }
+    
+    await prisma.combatCombatant.deleteMany({
+      where: {
+        combatId: combatId,
+        characterId: characterId
+      }
+    });
+    
+    emitToAll('combatantRemoved', { gameId: combat.gameId, combatId, characterId });
+    
+    res.json({ message: "Combattant retiré du combat" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression du combattant:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ========== ROUTES POUR LES ENNEMIS ==========
+
+// Ajouter un ennemi au combat
+app.post("/api/combats/:combatId/enemies", async (req, res) => {
+  try {
+    const { combatId } = req.params;
+    const { name, maxLife, weaponDamage, xPos = 0, yPos = 0 } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seul le Maître de Jeu peut ajouter des ennemis" });
+    }
+    
+    const combat = await prisma.combat.findUnique({
+      where: { id: combatId },
+      select: { gameId: true }
+    });
+    
+    if (!combat) {
+      return res.status(404).json({ error: "Combat non trouvé" });
+    }
+    
+    const enemy = await prisma.enemy.create({
+      data: {
+        combatId,
+        name,
+        currentLife: maxLife,
+        maxLife,
+        weaponDamage: weaponDamage || "1d6",
+        xPos,
+        yPos,
+        order: 0
+      }
+    });
+    
+    emitToAll('enemyAdded', { gameId: combat.gameId, combatId, enemy });
+    
+    res.json(enemy);
+  } catch (error) {
+    console.error("Erreur lors de l'ajout de l'ennemi:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// Mettre à jour un ennemi (vie, dégâts)
+app.put("/api/enemies/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { currentLife, weaponDamage } = req.body;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seul le Maître de Jeu peut modifier les ennemis" });
+    }
+    
+    const enemy = await prisma.enemy.findUnique({
+      where: { id },
+      include: { combat: { select: { gameId: true } } }
+    });
+    
+    if (!enemy) {
+      return res.status(404).json({ error: "Ennemi non trouvé" });
+    }
+    
+    const updateData = {};
+    if (currentLife !== undefined) updateData.currentLife = currentLife;
+    if (weaponDamage !== undefined) updateData.weaponDamage = weaponDamage;
+    
+    const updatedEnemy = await prisma.enemy.update({
+      where: { id },
+      data: updateData
+    });
+    
+    emitToAll('enemyUpdated', { gameId: enemy.combat.gameId, enemy: updatedEnemy });
+    
+    res.json(updatedEnemy);
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour de l'ennemi:", error);
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// Retirer un ennemi du combat
+app.delete("/api/enemies/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['user-id'];
+    
+    if (!userId) {
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
+    }
+    
+    // Vérifier que l'utilisateur est MJ
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'mj') {
+      return res.status(403).json({ error: "Seul le Maître de Jeu peut retirer des ennemis" });
+    }
+    
+    const enemy = await prisma.enemy.findUnique({
+      where: { id },
+      include: { combat: { select: { gameId: true } } }
+    });
+    
+    if (!enemy) {
+      return res.status(404).json({ error: "Ennemi non trouvé" });
+    }
+    
+    await prisma.enemy.delete({
+      where: { id }
+    });
+    
+    emitToAll('enemyRemoved', { gameId: enemy.combat.gameId, enemyId: id });
+    
+    res.json({ message: "Ennemi retiré du combat" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression de l'ennemi:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Server] API server running on port ${PORT}`);
+  console.log(`[Server] Accessible via localhost: http://localhost:${PORT}`);
+  console.log(`[Server] Accessible via Webstrator: http://185.207.226.6:${PORT}`);
+  console.log('');
+  console.log('🌐 Application déployée sur Webstrator');
+  console.log(`📱 URL d\'accès: http://185.207.226.6:${PORT}`);
+  console.log('');
+});
+
+// ========== FALLBACK HANDLER POUR SPA ==========
+// Doit être APRÈS toutes les routes API pour que les requêtes API passent correctement
 app.use((req, res) => {
   console.log(`[Server] Route de fallback pour: ${req.path}`);
   const indexPath = path.join(process.cwd(), 'dist', 'index.html');
@@ -2299,16 +3217,6 @@ app.use((req, res) => {
       distExists: fs.existsSync('dist')
     });
   }
-});
-
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Server] API server running on port ${PORT}`);
-  console.log(`[Server] Accessible via localhost: http://localhost:${PORT}`);
-  console.log(`[Server] Accessible via Webstrator: http://185.207.226.6:${PORT}`);
-  console.log('');
-  console.log('🌐 Application déployée sur Webstrator');
-  console.log(`📱 URL d\'accès: http://185.207.226.6:${PORT}`);
-  console.log('');
 });
 
 // Créer l'instance Socket.IO
@@ -2459,6 +3367,19 @@ io.on("connection", (socket) => {
   socket.on("canvas:stream-end", (data) => {
     console.log(`[Server] 🛑 Fin du stream de ${data.player}`);
     socket.broadcast.emit("canvas:stream-end", data);
+  });
+
+  // Relayer les notifications de combat
+  socket.on("combatStartedNotification", (data) => {
+    console.log(`[Server] ⚔️ Notification de combat pour la partie ${data.gameId}`);
+    // Émettre à tous les clients
+    io.emit("combatStartedNotification", data);
+  });
+
+  // Relayer les demandes d'initiative
+  socket.on("requestInitiative", (data) => {
+    console.log(`[Server] 🎲 Demande d'initiative pour ${data.characterName}`);
+    io.emit("requestInitiative", data);
   });
 
   socket.on("disconnect", () => console.log("[Server] Un joueur est parti"));

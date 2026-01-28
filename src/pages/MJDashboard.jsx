@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 import CharacterSheet from '../components/CharacterSheet';
+import CombatMap from '../components/CombatMap';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 
@@ -15,6 +16,7 @@ export default function MJDashboard() {
   const [error, setError] = useState(null);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showCombat, setShowCombat] = useState(false);
 
   // Vérifier que l'utilisateur est MJ
   const isMJ = user?.role === 'mj';
@@ -199,6 +201,7 @@ export default function MJDashboard() {
   };
 
   if (!isMJ) {
+    console.log('[MJDashboard] ❌ Utilisateur pas MJ - affichage "Accès refusé"');
     return (
       <div className="min-h-screen bg-parchment flex items-center justify-center">
         <div className="text-center">
@@ -210,6 +213,7 @@ export default function MJDashboard() {
   }
 
   if (loading) {
+    console.log('[MJDashboard] ⏳ Chargement des personnages...');
     return (
       <div className="min-h-screen bg-parchment flex items-center justify-center">
         <div className="text-center">
@@ -221,6 +225,7 @@ export default function MJDashboard() {
   }
 
   if (error) {
+    console.log('[MJDashboard] ❌ Erreur:', error);
     return (
       <div className="min-h-screen bg-parchment flex items-center justify-center">
         <div className="text-center">
@@ -237,6 +242,10 @@ export default function MJDashboard() {
     );
   }
 
+  console.log('[MJDashboard] ✅ Affichage du dashboard complet');
+
+  console.log('[MJDashboard] ✅ Affichage du dashboard complet');
+
   return (
     <div className="min-h-screen bg-parchment">
       {/* Header */}
@@ -246,7 +255,19 @@ export default function MJDashboard() {
             <h1 className="text-2xl font-bold">🎭 Table de Maître</h1>
             <p className="text-parchment/80">Surveillance des fiches de personnages</p>
           </div>
-          <div className="text-sm space-y-1">
+          <div className="text-sm space-y-1 flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCombat(!showCombat)}
+                className={`px-4 py-2 rounded font-bold transition-all ${
+                  showCombat 
+                    ? 'bg-red-500 text-white' 
+                    : 'bg-parchment/20 text-parchment hover:bg-parchment/30'
+                }`}
+              >
+                ⚔️ {showCombat ? 'Masquer' : 'Afficher'} Combats
+              </button>
+            </div>
             <div>
               <span className="bg-parchment/20 px-2 py-1 rounded">
                 {selectedCharacters.length}/4 personnages sélectionnés
@@ -265,6 +286,22 @@ export default function MJDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Section Combat */}
+      {showCombat && (
+        <div className="p-4 bg-parchment/70 border-b-2 border-red-500">
+          <div className="max-w-7xl mx-auto">
+            <h2 className="text-xl font-bold text-ink mb-4">Gestion du Combat ⚔️</h2>
+            <CombatMap 
+              gameId={gameId}
+              onCombatEnd={() => setShowCombat(false)}
+              onCombatStart={() => {
+                console.log('[MJDashboard] Combat démarré');
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Sélection des personnages */}
       <div className="bg-parchment/50 border-b border-ink/20 p-4">

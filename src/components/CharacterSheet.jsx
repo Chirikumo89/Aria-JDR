@@ -3,6 +3,7 @@ import { useAutoSave } from '../hooks/useAutoSave';
 import { usePermissions } from '../hooks/usePermissions';
 import { useGame } from '../context/GameContext';
 import { useSocket } from '../context/SocketContext';
+import apiService from '../services/api';
 import Checklist from './Checklist';
 import TextareaChecklist from './TextareaChecklist';
 import CharacterCards from './Cards/CharacterCards';
@@ -12,6 +13,7 @@ import CommonTreasury from './CommonTreasury';
 import VehicleInventory from './VehicleInventory';
 import PendingTransfers from './PendingTransfers';
 import ItemTransferModal from './ItemTransferModal';
+import WeaponSelector, { ArmorSelector } from './WeaponSelector';
 import { migrateChecklistData } from '../utils/migrateChecklistData';
 
 const SKILLS = [
@@ -38,14 +40,18 @@ const SKILLS = [
 ];
 
 export default function CharacterSheet({ character, onSave, isEditable = true }) {
-  const { canEditCharacter, canViewCharacter } = usePermissions();
+  const { canEditCharacter, canViewCharacter, isMJ } = usePermissions();
   const { characters } = useGame();
   const socket = useSocket();
-  
+
   // État pour la modal de transfert
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [itemToTransfer, setItemToTransfer] = useState(null);
   const [preselectedCharacter, setPreselectedCharacter] = useState(null);
+
+  // État pour le combat
+  const [hasActiveCombat, setHasActiveCombat] = useState(false);
+  const [isLoadingCombat, setIsLoadingCombat] = useState(false);
 
 
   const [formData, setFormData] = useState(() => ({
@@ -67,10 +73,15 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
     endurance: character?.endurance || '',
     intelligence: character?.intelligence || '',
     charisma: character?.charisma || '',
+    // Compétences de combat
+    reflexes: character?.reflexes || '',
+    closeCombat: character?.closeCombat || '',
+    dodge: character?.dodge || '',
     awesomeBecause: String(character?.awesomeBecause || ''),
     societyProblems: String(character?.societyProblems || ''),
     skills: character?.skills || {},
     specialSkills: character?.specialSkills || {},
+    temporarySkills: character?.temporarySkills || [],
     possessions: migrateChecklistData(character?.possessions),
     notes: migrateChecklistData(character?.notes),
     // Système monétaire
@@ -98,6 +109,42 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
     console.log('Transfert traité - mise à jour via WebSocket');
   };
 
+  // Vérifier s'il y a un combat actif
+  useEffect(() => {
+    if (!character?.gameId) return;
+
+    const checkCombat = async () => {
+      try {
+        await apiService.getActiveCombat(character.gameId);
+        setHasActiveCombat(true);
+      } catch (error) {
+        setHasActiveCombat(false);
+      }
+    };
+
+    checkCombat();
+
+    // Vérifier toutes les 5 secondes
+    const interval = setInterval(checkCombat, 5000);
+    return () => clearInterval(interval);
+  }, [character?.gameId]);
+
+  // Écouter les événements de combat
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCombatStarted = () => setHasActiveCombat(true);
+    const handleCombatEnded = () => setHasActiveCombat(false);
+
+    socket.on('combatStarted', handleCombatStarted);
+    socket.on('combatEnded', handleCombatEnded);
+
+    return () => {
+      socket.off('combatStarted', handleCombatStarted);
+      socket.off('combatEnded', handleCombatEnded);
+    };
+  }, [socket]);
+
   // Écouter les mises à jour de personnage via WebSocket
   useEffect(() => {
     if (!socket || !character?.id) return;
@@ -105,12 +152,12 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
     const handleCharacterUpdated = (updatedCharacter) => {
       if (updatedCharacter.id === character.id) {
         // Mettre à jour les possessions si elles ont changé
-        const newPossessions = updatedCharacter.possessions 
-          ? (typeof updatedCharacter.possessions === 'string' 
-              ? JSON.parse(updatedCharacter.possessions) 
-              : updatedCharacter.possessions)
+        const newPossessions = updatedCharacter.possessions
+          ? (typeof updatedCharacter.possessions === 'string'
+            ? JSON.parse(updatedCharacter.possessions)
+            : updatedCharacter.possessions)
           : [];
-        
+
         setFormData(prev => ({
           ...prev,
           possessions: migrateChecklistData(newPossessions),
@@ -180,6 +227,33 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
     });
   };
 
+  // Gestion des compétences temporaires
+  const addTemporarySkill = () => {
+    setFormData(prev => ({
+      ...prev,
+      temporarySkills: [
+        ...prev.temporarySkills,
+        { id: Date.now(), name: '', percentage: '', grantedBy: 'MJ' }
+      ]
+    }));
+  };
+
+  const updateTemporarySkill = (id, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      temporarySkills: prev.temporarySkills.map(skill =>
+        skill.id === id ? { ...skill, [field]: value } : skill
+      )
+    }));
+  };
+
+  const removeTemporarySkill = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      temporarySkills: prev.temporarySkills.filter(skill => skill.id !== id)
+    }));
+  };
+
   // Fonction de sauvegarde pour l'auto-save (mémorisée)
   const handleAutoSave = useMemo(() => {
     return async (data) => {
@@ -247,10 +321,15 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
         endurance: character.endurance || '',
         intelligence: character.intelligence || '',
         charisma: character.charisma || '',
+        // Compétences de combat
+        reflexes: character.reflexes || '',
+        closeCombat: character.closeCombat || '',
+        dodge: character.dodge || '',
         awesomeBecause: String(character.awesomeBecause || ''),
         societyProblems: String(character.societyProblems || ''),
         skills: character.skills || {},
         specialSkills: character.specialSkills || {},
+        temporarySkills: character.temporarySkills || [],
         possessions: migrateChecklistData(character.possessions),
         notes: migrateChecklistData(character.notes),
         // Système monétaire
@@ -260,7 +339,7 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
         kings: character.kings || 0
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [character?.id]); // Seulement quand l'ID change (nouveau personnage)
 
   return (
@@ -401,6 +480,11 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
             <div className="flex items-center gap-3 p-3 bg-white/60 rounded-lg">
               <span className="text-2xl">🛡️</span>
               <label className="text-sm font-semibold text-ink flex-1">Protection</label>
+              <ArmorSelector
+                onSelect={(protection) => handleInputChange('protection', protection)}
+                disabled={!canEdit}
+                showPrices={isMJ()}
+              />
               <input
                 type="number"
                 value={formData.protection}
@@ -415,17 +499,29 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
 
       {/* Armes */}
       <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-slate-50/80 to-slate-100/60 border-2 border-slate-200/50 shadow-md">
-        <h3 className="text-lg font-bold mb-4 flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-xl shadow-md -mx-2">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-          </svg>
-          Arsenal
+        <h3 className="text-lg font-bold mb-4 flex items-center justify-between bg-slate-700 text-white px-4 py-2 rounded-xl shadow-md -mx-2">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+            </svg>
+            Arsenal
+          </div>
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map(num => (
             <div key={num} className="p-4 bg-white/70 rounded-xl border border-slate-300/50 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2">Arme {num}</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-slate-700">Arme {num}</label>
+                  <WeaponSelector
+                    onSelect={(name, damage) => {
+                      handleInputChange(`weapon${num}`, name);
+                      handleInputChange(`damage${num}`, damage);
+                    }}
+                    disabled={!canEdit}
+                    showPrices={isMJ()}
+                  />
+                </div>
                 <input
                   type="text"
                   value={formData[`weapon${num}`]}
@@ -533,17 +629,17 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
             <h4 className="text-sm font-bold text-green-900 mb-3">Compétences de base</h4>
             <div className="space-y-2">
               {SKILLS.map((skill, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-white/80 rounded-lg hover:bg-green-50/50 transition-colors">
-                  <span className="text-xs text-ink/80 flex-1 font-medium">{skill.name}</span>
-                  <span className="text-xs text-ink/60 w-16 text-center bg-green-100/60 px-2 py-1 rounded">{skill.link}</span>
+                <div key={index} className="flex items-center gap-2 p-2 bg-white/90 rounded-lg hover:bg-green-50 transition-colors">
+                  <span className="text-sm text-green-900 flex-1 font-semibold">{skill.name}</span>
+                  <span className="text-xs text-green-800 w-16 text-center bg-green-100 px-2 py-1 rounded font-medium">{skill.link}</span>
                   <input
                     type="number"
                     value={formData.skills[skill.name] || ''}
                     onChange={(e) => handleSkillChange(skill.name, e.target.value)}
-                    className="w-16 p-1 border-2 border-green-300 bg-white text-ink text-center rounded-lg focus:border-green-500 transition-colors"
+                    className="w-16 p-1 border-2 border-green-300 bg-white text-green-900 text-center rounded-lg focus:border-green-500 transition-colors font-bold"
                     disabled={!canEdit}
                   />
-                  <span className="text-xs text-ink/60">%</span>
+                  <span className="text-sm text-green-800 font-medium">%</span>
                 </div>
               ))}
             </div>
@@ -554,36 +650,103 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(index => {
                 const skill = getSpecialSkill(index);
                 return (
-                  <div key={index} className="flex items-center gap-2 p-2 bg-white/80 rounded-lg">
+                  <div key={index} className="flex items-center gap-2 p-2 bg-white/90 rounded-lg">
                     <input
                       type="text"
                       value={skill.name}
                       onChange={(e) => handleSpecialSkillChange(index, 'name', e.target.value)}
-                      className="flex-1 p-2 border-2 border-green-300 bg-white text-ink placeholder-ink/50 rounded-lg focus:border-green-500 transition-colors"
+                      className="flex-1 p-2 border-2 border-green-300 bg-white text-green-900 placeholder-green-600 rounded-lg focus:border-green-500 transition-colors"
                       disabled={!canEdit}
                       placeholder={`Compétence ${index}`}
                     />
-                    <span className="text-xs text-ink/60">/</span>
+                    <span className="text-xs text-green-700 font-medium">/</span>
                     <input
                       type="number"
                       value={skill.percentage}
                       onChange={(e) => handleSpecialSkillChange(index, 'percentage', e.target.value)}
-                      className="w-16 p-2 border-2 border-green-300 bg-white text-ink text-center rounded-lg focus:border-green-500 transition-colors"
+                      className="w-16 p-2 border-2 border-green-300 bg-white text-green-900 text-center rounded-lg focus:border-green-500 transition-colors font-bold"
                       disabled={!canEdit}
                       placeholder="0"
                     />
-                    <span className="text-xs text-ink/60">%</span>
+                    <span className="text-xs text-green-700 font-medium">%</span>
                   </div>
                 );
               })}
             </div>
           </div>
         </div>
+
+        {/* Compétences temporaires */}
+        {(formData.temporarySkills?.length > 0 || canEdit) && (
+          <div className="mt-6 p-4 bg-gradient-to-r from-purple-100/80 to-pink-100/80 rounded-xl border-2 border-purple-200/50">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-bold text-purple-900 flex items-center gap-2">
+                <span>✨</span> Compétences temporaires
+                <span className="text-xs font-normal text-purple-600">(octroyées par le MJ)</span>
+              </h4>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={addTemporarySkill}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Ajouter
+                </button>
+              )}
+            </div>
+
+            {formData.temporarySkills?.length === 0 ? (
+              <p className="text-sm text-purple-600/70 text-center py-4">
+                Aucune compétence temporaire active
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {formData.temporarySkills?.map((skill) => (
+                  <div key={skill.id} className="flex items-center gap-2 p-2 bg-white/80 rounded-lg border border-purple-200">
+                    <span className="text-purple-500">✨</span>
+                    <input
+                      type="text"
+                      value={skill.name}
+                      onChange={(e) => updateTemporarySkill(skill.id, 'name', e.target.value)}
+                      className="flex-1 p-2 border-2 border-purple-300 bg-white text-ink placeholder-ink/50 rounded-lg focus:border-purple-500 transition-colors"
+                      disabled={!canEdit}
+                      placeholder="Nom de la compétence"
+                    />
+                    <input
+                      type="number"
+                      value={skill.percentage}
+                      onChange={(e) => updateTemporarySkill(skill.id, 'percentage', e.target.value)}
+                      className="w-16 p-2 border-2 border-purple-300 bg-white text-ink text-center rounded-lg focus:border-purple-500 transition-colors"
+                      disabled={!canEdit}
+                      placeholder="0"
+                    />
+                    <span className="text-xs text-ink/60">%</span>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => removeTemporarySkill(skill.id)}
+                        className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors"
+                        title="Supprimer"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Transferts en attente */}
       {character?.id && (
-        <PendingTransfers 
+        <PendingTransfers
           characterId={character.id}
           characterMoney={{
             crowns: formData.crowns || 0,
@@ -667,7 +830,7 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
       {/* Caisse commune */}
       {(character?.gameId || character?.game?.id) && (
         <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-emerald-100/60 border-2 border-emerald-200/50 shadow-md">
-          <CommonTreasury 
+          <CommonTreasury
             gameId={character.gameId || character.game?.id}
           />
         </div>
@@ -676,7 +839,7 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
       {/* Véhicules & Inventaires communs */}
       {(character?.gameId || character?.game?.id) && (
         <div className="mb-8 p-6 rounded-2xl bg-gradient-to-br from-cyan-50/80 to-cyan-100/60 border-2 border-cyan-200/50 shadow-md">
-          <VehicleInventory 
+          <VehicleInventory
             gameId={character.gameId || character.game?.id}
             disabled={!canEdit}
           />
@@ -732,7 +895,34 @@ export default function CharacterSheet({ character, onSave, isEditable = true })
 
       {/* Boutons d'action */}
       {canEdit && onSave && (
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-4">
+          {/* Bouton Rejoindre Combat */}
+          <div>
+            {hasActiveCombat && (
+              <a
+                href={`/combat/${character?.gameId}`}
+                className="inline-flex px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white rounded-2xl font-semibold text-lg shadow-lg hover:shadow-red-500/50 transition-all duration-300 gap-2 items-center"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M13.5.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm8 7.48a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18 9a.75.75 0 100-1.5A.75.75 0 0018 9zM9 9.75a.75.75 0 110-1.5.75.75 0 010 1.5zm-.75 6a.75.75 0 101.5 0 .75.75 0 00-1.5 0zM9 20.25a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                </svg>
+                ⚔️ Rejoindre Combat
+              </a>
+            )}
+            {!hasActiveCombat && (
+              <button
+                disabled
+                className="inline-flex px-8 py-4 bg-gray-400 text-white rounded-2xl font-semibold text-lg cursor-not-allowed opacity-50 gap-2 items-center"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M13.5.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm8 7.48a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18 9a.75.75 0 100-1.5A.75.75 0 0018 9zM9 9.75a.75.75 0 110-1.5.75.75 0 010 1.5zm-.75 6a.75.75 0 101.5 0 .75.75 0 00-1.5 0zM9 20.25a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                </svg>
+                ⚔️ Aucun combat actif
+              </button>
+            )}
+          </div>
+
+          {/* Bouton Sauvegarde */}
           <button
             onClick={handleSave}
             disabled={isSaving}

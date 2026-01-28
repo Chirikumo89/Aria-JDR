@@ -547,6 +547,155 @@ class ApiService {
     }
     return response.json();
   }
-}
 
-export const apiService = new ApiService();
+  // ========== COMBATS ==========
+  
+  // Créer un combat
+  async createCombat(gameId) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/combats`, {
+      method: 'POST',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) throw new Error('Erreur lors de la création du combat');
+    return response.json();
+  }
+
+  // Récupérer le combat actif d'une partie
+  async getActiveCombat(gameId) {
+    const response = await fetch(`${API_BASE_URL}/games/${gameId}/combat`);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors de la récupération du combat');
+    }
+    return response.json();
+  }
+
+  // Terminer un combat
+  async endCombat(combatId) {
+    const response = await fetch(`${API_BASE_URL}/combats/${combatId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) throw new Error('Erreur lors de la suppression du combat');
+    return response.json();
+  }
+
+  // Déplacer un combattant
+  async moveCombatant(combatId, characterId, enemyId, xPos, yPos) {
+    const response = await fetch(`${API_BASE_URL}/combats/${combatId}/move`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ characterId, enemyId, xPos, yPos })
+    });
+    if (!response.ok) throw new Error('Erreur lors du déplacement');
+    return response.json();
+  }
+
+  // Retirer un combattant du combat
+  async removeCombatant(combatId, characterId) {
+    const response = await fetch(`${API_BASE_URL}/combats/${combatId}/combatants/${characterId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) throw new Error('Erreur lors de la suppression du combattant');
+    return response.json();
+  }
+
+  // ========== ENNEMIS ==========
+  
+  // Ajouter un ennemi au combat
+  async addEnemy(combatId, enemyData) {
+    const response = await fetch(`${API_BASE_URL}/combats/${combatId}/enemies`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(enemyData)
+    });
+    if (!response.ok) throw new Error('Erreur lors de l\'ajout de l\'ennemi');
+    return response.json();
+  }
+
+  // Mettre à jour un ennemi
+  async updateEnemy(enemyId, enemyData) {
+    const response = await fetch(`${API_BASE_URL}/enemies/${enemyId}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(enemyData)
+    });
+    if (!response.ok) throw new Error('Erreur lors de la mise à jour de l\'ennemi');
+    return response.json();
+  }
+
+  // Retirer un ennemi du combat
+  async removeEnemy(enemyId) {
+    const response = await fetch(`${API_BASE_URL}/enemies/${enemyId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) throw new Error('Erreur lors de la suppression de l\'ennemi');
+    return response.json();
+  }
+
+  // ========== INITIATIVE ==========
+
+  // Lancer l'initiative pour un combattant (personnage)
+  async rollInitiative(combatId, combatantId) {
+    const response = await fetch(`${API_BASE_URL}/combats/${combatId}/initiative/${combatantId}`, {
+      method: 'POST',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) throw new Error('Erreur lors du lancer d\'initiative');
+    return response.json();
+  }
+
+  // Lancer l'initiative pour un ennemi
+  async rollInitiativeEnemy(combatId, enemyId) {
+    const response = await fetch(`${API_BASE_URL}/combats/${combatId}/initiative-enemy/${enemyId}`, {
+      method: 'POST',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) throw new Error('Erreur lors du lancer d\'initiative pour l\'ennemi');
+    return response.json();
+  }
+
+  // Calculer et organiser l'ordre d'initiative
+  async calculateInitiative(combatId) {
+    const response = await fetch(`${API_BASE_URL}/combats/${combatId}/calculate-initiative`, {
+      method: 'POST',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) throw new Error('Erreur lors du calcul d\'initiative');
+    return response.json();
+  }
+
+  // ========== ACTIONS DE COMBAT ==========
+
+  // Effectuer une attaque
+  async attack(combatId, actorId, targetId, actorType = 'character', targetType = 'character', weaponIndex = 0) {
+    const response = await fetch(`${API_BASE_URL}/combats/${combatId}/attack`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        actorId,
+        targetId,
+        actorType,
+        targetType,
+        weaponIndex
+      })
+    });
+    if (!response.ok) throw new Error('Erreur lors de l\'attaque');
+    return response.json();
+  }
+
+  // Passer au tour suivant
+  async nextTurn(combatId) {
+    const response = await fetch(`${API_BASE_URL}/combats/${combatId}/next-turn`, {
+      method: 'POST',
+      headers: this.getHeaders()
+    });
+    if (!response.ok) throw new Error('Erreur lors du passage au tour suivant');
+    return response.json();
+  }}
+
+// Créer une instance unique et l'exporter
+const apiService = new ApiService();
+export default apiService;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 

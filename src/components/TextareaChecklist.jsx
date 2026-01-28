@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 
-export default function TextareaChecklist({ 
-  items = [], 
-  onChange, 
+export default function TextareaChecklist({
+  items = [],
+  onChange,
   placeholder = "Ajouter une note...",
   disabled = false,
   className = ""
@@ -19,7 +19,7 @@ export default function TextareaChecklist({
 
   const addItem = () => {
     if (disabled) return;
-    
+
     const newItem = {
       id: Date.now() + Math.random(), // Utiliser Math.random pour éviter les doublons si ajout rapide
       text: '',
@@ -65,11 +65,10 @@ export default function TextareaChecklist({
             <button
               onClick={() => toggleItem(item.id)}
               disabled={disabled}
-              className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-200 mt-1 ${
-                item.checked 
-                  ? 'bg-green-600 border-green-600 text-white shadow-lg ring-2 ring-green-200' 
+              className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all duration-200 mt-1 ${item.checked
+                  ? 'bg-green-600 border-green-600 text-white shadow-lg ring-2 ring-green-200'
                   : 'border-gray-400 hover:border-gray-500 bg-white hover:bg-gray-50 shadow-sm'
-              } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-105'}`}
+                } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-105'}`}
             >
               {item.checked && (
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -84,11 +83,10 @@ export default function TextareaChecklist({
               onChange={(e) => updateItem(item.id, 'text', e.target.value)}
               placeholder={item.isNew ? placeholder : ''}
               disabled={disabled}
-              className={`flex-1 p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-y ${
-                item.checked 
-                  ? 'line-through text-gray-600 bg-gray-200 border-gray-400 font-medium' 
+              className={`flex-1 p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-y ${item.checked
+                  ? 'line-through text-gray-600 bg-gray-200 border-gray-400 font-medium'
                   : 'border-gray-300 hover:border-gray-400 bg-white'
-              } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+                } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
               rows="3"
               autoFocus={item.isNew}
             />
@@ -106,7 +104,7 @@ export default function TextareaChecklist({
           </div>
         ))}
       </div>
-      
+
       {!disabled && (
         <button
           onClick={addItem}

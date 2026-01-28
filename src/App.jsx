@@ -5,6 +5,7 @@ import Games from "./pages/Games";
 import CharacterSheetPage from "./pages/CharacterSheetPage";
 import MJDashboard from "./pages/MJDashboard";
 import DiceHistoryPage from "./pages/DiceHistoryPage";
+import CombatViewerPage from "./pages/CombatViewerPage";
 import DiceBox3D from "./components/Dice/DiceBox3D";
 import DiceSelector3D from "./components/Dice/DiceSelector3D";
 import DiceBoxTest from "./components/Dice/DiceBoxTest";
@@ -33,6 +34,7 @@ function AppContent() {
         <Route path="/games" element={<Games />} />
         <Route path="/character/:characterId" element={<CharacterSheetPage />} />
         <Route path="/mj/:gameId" element={<MJDashboard />} />
+        <Route path="/combat/:gameId" element={<CombatViewerPage />} />
         <Route path="/dice-history" element={<DiceHistoryPage />} />
       </Routes>
 

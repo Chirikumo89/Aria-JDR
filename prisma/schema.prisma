@@ -2,8 +2,9 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider      = "prisma-client-js"
+  output        = "../src/generated/prisma"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -55,6 +56,7 @@ model Game {
   crateRequests CrateRequest[]
   vehicleRequests VehicleRequest[]
   itemTransfers ItemTransfer[]
+  combats       Combat[]
   
   @@map("games")
 }
@@ -72,6 +74,11 @@ model Game {
   currentLifePoints Int?  // Points de vie actuels
   wounds         Int?     // Blessures
   protection     Int?     // Protection
+  
+  // Compétences de combat (en %)
+  reflexes    Int?      // Réflexes (pour initiative)
+  closeCombat Int?      // Combat rapproché (pour parade et attaque)
+  dodge       Int?      // Esquive (pour esquiver)
   
     // Armes (3 armes max)
     weapon1     String?  // Arme 1
@@ -97,7 +104,10 @@ model Game {
   
   // Compétences spéciales
   specialSkills Json?  // Compétences spéciales
-  
+
+  // Compétences temporaires (octroyées par le MJ)
+  temporarySkills Json?  // Compétences temporaires avec nom et pourcentage
+
   // Possessions et notes
   possessions String?  // Possessions
   notes       String?  // Notes
@@ -128,6 +138,7 @@ model Game {
   transactions Transaction[]
   sentTransfers     ItemTransfer[] @relation("SentTransfers")
   receivedTransfers ItemTransfer[] @relation("ReceivedTransfers")
+  combatCombatants  CombatCombatant[]
   
   @@map("characters")
 }
@@ -333,4 +344,104 @@ model ItemTransfer {
   game            Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
   
   @@map("item_transfers")
+}
+
+// Modèle pour les combats
+model Combat {
+  id            String   @id @default(cuid())
+  isActive      Boolean  @default(true)  // Combat actif ou terminé
+  currentRound  Int      @default(1)     // Tour actuel du combat
+  currentTurn   String?  @default("")    // ID du CombatCombatant ou Enemy en train d'agir
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  gameId        String
+  game          Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  combatants    CombatCombatant[]        // Personnages et ennemis dans le combat
+  enemies       Enemy[]                  // Ennemis spécifiques du combat
+  actions       CombatAction[]           // Actions du combat
+  
+  @@map("combats")
+}
+
+// Modèle pour les participants au combat (personnages joueurs)
+model CombatCombatant {
+  id            String   @id @default(cuid())
+  xPos          Int      @default(0)     // Position X sur la grille
+  yPos          Int      @default(0)     // Position Y sur la grille
+  order         Int      @default(0)     // Ordre d'initiative (0 = meilleur, 99+ = raté)
+  
+  // Initiative
+  initiativeRoll Int?                    // Résultat du d100 pour l'initiative
+  reflexesScore  Int?                    // Score de réflexes du personnage
+  passed         Boolean @default(true)  // true si initiativeRoll <= reflexesScore
+  
+  // Combat
+  currentHealth  Int?                    // Points de vie actuels dans le combat
+  hasActed       Boolean @default(false) // Vrai si le personnage a agi ce tour
+  
+  // Relations
+  combatId      String
+  combat        Combat   @relation(fields: [combatId], references: [id], onDelete: Cascade)
+  characterId   String
+  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  
+  @@unique([combatId, characterId])  // Un personnage ne peut être qu'une fois par combat
+  @@map("combat_combatants")
+}
+
+// Modèle pour les ennemis du combat
+model Enemy {
+  id            String   @id @default(cuid())
+  name          String
+  currentLife   Int                     // Points de vie actuels
+  maxLife       Int                     // Points de vie maximum
+  reflexes      Int      @default(50)   // Score de réflexes de l'ennemi
+  weaponDamage  String   @default("1d6") // Dégâts de l'arme (ex: 2d6+3)
+  armor         Int      @default(0)     // Protection armure
+  xPos          Int      @default(0)     // Position X sur la grille
+  yPos          Int      @default(0)     // Position Y sur la grille
+  order         Int      @default(0)     // Ordre d'initiative
+  
+  // Initiative
+  initiativeRoll Int?                    // Résultat du d100 pour l'initiative
+  passed         Boolean @default(true)  // true si initiativeRoll <= reflexes
+  hasActed       Boolean @default(false) // Vrai si l'ennemi a agi ce tour
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  combatId      String
+  combat        Combat   @relation(fields: [combatId], references: [id], onDelete: Cascade)
+  
+  @@map("enemies")
+}
+
+// Modèle pour les actions de combat
+model CombatAction {
+  id            String   @id @default(cuid())
+  round         Int                     // Tour du combat
+  actionType    String                  // "attack", "defend", "parry", "dodge", "skip"
+  actionResult  String                  // "success", "failure", "critical", "fumble"
+  
+  // Attaque
+  attackRoll    Int?                    // Résultat du d100 pour l'attaque
+  defenseRoll   Int?                    // Résultat du d100 pour la défense
+  damage        Int?                    // Dégâts infligés
+  isCritical    Boolean @default(false) // true si 01-05
+  isFumble      Boolean @default(false) // true si 96-00
+  
+  // Information
+  description   String?                 // Description de l'action
+  createdAt     DateTime @default(now())
+  
+  // Relations
+  combatId      String
+  combat        Combat   @relation(fields: [combatId], references: [id], onDelete: Cascade)
+  actorId       String?                 // ID du CombatCombatant ou Enemy qui a agi
+  targetId      String?                 // ID du CombatCombatant ou Enemy visé
+  
+  @@map("combat_actions")
 }

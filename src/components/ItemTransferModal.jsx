@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 
 const CURRENCY_INFO = {
   crowns: { label: 'Couronnes', symbol: '👑', color: 'yellow' },
@@ -9,10 +9,10 @@ const CURRENCY_INFO = {
   kings: { label: 'Rois', symbol: '♔', color: 'blue' }
 };
 
-export default function ItemTransferModal({ 
-  isOpen, 
-  onClose, 
-  item, 
+export default function ItemTransferModal({
+  isOpen,
+  onClose,
+  item,
   fromCharacterId,
   gameId,
   characters = [],
@@ -24,12 +24,12 @@ export default function ItemTransferModal({
   const [isExchange, setIsExchange] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // Argent offert
   const [offeredMoney, setOfferedMoney] = useState({
     crowns: 0, orbs: 0, scepters: 0, kings: 0
   });
-  
+
   // Argent demandé (pour les échanges)
   const [requestedMoney, setRequestedMoney] = useState({
     crowns: 0, orbs: 0, scepters: 0, kings: 0
@@ -72,7 +72,7 @@ export default function ItemTransferModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!selectedCharacterId) {
       setError('Veuillez sélectionner un personnage');
       return;
@@ -118,7 +118,7 @@ export default function ItemTransferModal({
 
       if (window.notificationSystem) {
         const targetChar = characters.find(c => c.id === selectedCharacterId);
-        const message = isExchange 
+        const message = isExchange
           ? `Demande d'échange envoyée à ${targetChar?.name || 'le joueur'}`
           : `Demande de transfert envoyée à ${targetChar?.name || 'le joueur'}`;
         window.notificationSystem.success(message);
@@ -138,11 +138,11 @@ export default function ItemTransferModal({
 
   // Rendu avec un portail pour s'assurer que la modale est au-dessus de tout
   return createPortal(
-    <div 
+    <div
       className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div 
+      <div
         className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl w-full max-w-lg border border-white/20 shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
@@ -175,11 +175,10 @@ export default function ItemTransferModal({
               <button
                 type="button"
                 onClick={() => setIsExchange(false)}
-                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
-                  !isExchange 
-                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg' 
+                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${!isExchange
+                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
                     : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/20'
-                }`}
+                  }`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
@@ -189,11 +188,10 @@ export default function ItemTransferModal({
               <button
                 type="button"
                 onClick={() => setIsExchange(true)}
-                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
-                  isExchange 
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
+                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${isExchange
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
                     : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/20'
-                }`}
+                  }`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -326,11 +324,10 @@ export default function ItemTransferModal({
             <button
               type="submit"
               disabled={loading || availableCharacters.length === 0}
-              className={`flex-1 px-6 py-3 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-                isExchange 
+              className={`flex-1 px-6 py-3 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${isExchange
                   ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 hover:shadow-purple-500/50'
                   : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 hover:shadow-blue-500/50'
-              }`}
+                }`}
             >
               {loading ? (
                 <>
@@ -360,7 +357,7 @@ export default function ItemTransferModal({
         </form>
 
         <p className="mt-4 text-xs text-gray-500 text-center">
-          {isExchange 
+          {isExchange
             ? 'Le joueur devra accepter l\'échange pour qu\'il soit effectué.'
             : 'Le joueur recevra une notification et devra accepter le transfert.'
           }

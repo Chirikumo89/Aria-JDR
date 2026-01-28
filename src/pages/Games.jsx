@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
+import CombatNotification from '../components/CombatNotification';
 import CardManager from '../components/Cards/CardManager';
 import GameTimeDisplay from '../components/GameTimeDisplay';
 
@@ -35,6 +36,24 @@ export default function Games() {
     name: ''
   });
   const [activeTab, setActiveTab] = useState('characters'); // 'characters', 'cards', 'diceHistory' ou 'treasury'
+  const [combatNotification, setCombatNotification] = useState(null);
+
+  // Écouter les notifications de combat
+  useEffect(() => {
+    if (!socket || !currentGame) return;
+
+    const handleCombatStartedNotification = (data) => {
+      if (data.gameId === currentGame.id) {
+        setCombatNotification(data);
+      }
+    };
+
+    socket.on('combatStartedNotification', handleCombatStartedNotification);
+
+    return () => {
+      socket.off('combatStartedNotification', handleCombatStartedNotification);
+    };
+  }, [socket, currentGame?.id]);
 
   const handleCreateGame = async (e) => {
     e.preventDefault();
@@ -276,14 +295,38 @@ export default function Games() {
             
             {/* Bouton Dashboard MJ */}
             {isMJ() && (
+              <div className="flex gap-2">
+                <Link
+                  to={`/mj/${currentGame.id}`}
+                  className="group relative px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-purple-500/50 flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  Table de Maître
+                </Link>
+                <Link
+                  to={`/combat/${currentGame.id}`}
+                  className="group relative px-6 py-3 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-red-500/50 flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13.5.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm8 7.48a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18 9a.75.75 0 100-1.5A.75.75 0 0018 9zM9 9.75a.75.75 0 110-1.5.75.75 0 010 1.5zm-.75 6a.75.75 0 101.5 0 .75.75 0 00-1.5 0zM9 20.25a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                  </svg>
+                  Combats
+                </Link>
+              </div>
+            )}
+            
+            {/* Bouton Combat pour les joueurs */}
+            {!isMJ() && (
               <Link
-                to={`/mj/${currentGame.id}`}
-                className="group relative px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-purple-500/50 flex items-center gap-2"
+                to={`/combat/${currentGame.id}`}
+                className="group relative px-6 py-3 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-red-500/50 flex items-center gap-2"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M13.5.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm8 7.48a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18 9a.75.75 0 100-1.5A.75.75 0 0018 9zM9 9.75a.75.75 0 110-1.5.75.75 0 010 1.5zm-.75 6a.75.75 0 101.5 0 .75.75 0 00-1.5 0zM9 20.25a.75.75 0 110-1.5.75.75 0 010 1.5z" />
                 </svg>
-                Table de Maître
+                Voir les Combats
               </Link>
             )}
           </div>
@@ -661,6 +704,16 @@ export default function Games() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Notification de combat */}
+      {combatNotification && currentGame && (
+        <CombatNotification
+          gameId={currentGame.id}
+          onJoinCombat={() => {
+            window.location.href = `/combat/${currentGame.id}`;
+          }}
+        />
       )}
     </div>
   );

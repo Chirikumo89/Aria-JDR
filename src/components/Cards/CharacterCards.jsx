@@ -59,7 +59,7 @@ export default function CharacterCards({ character, onRemoveCard, canEdit = fals
                 )}
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <div className="text-right text-sm">
                 <div className="text-ink/60">
@@ -71,7 +71,7 @@ export default function CharacterCards({ character, onRemoveCard, canEdit = fals
                   </div>
                 )}
               </div>
-              
+
               {canEdit && (
                 <button
                   onClick={(e) => {

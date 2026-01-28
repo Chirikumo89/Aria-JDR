@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 import { useSocket } from '../context/SocketContext';
 
 const CURRENCY_INFO = {
@@ -22,11 +22,11 @@ const formatMoney = (transfer, prefix) => {
 // Fonction pour calculer le manque d'argent
 const calculateMissingMoney = (transfer, characterMoney) => {
   if (!transfer.isExchange) return null;
-  
+
   const missing = [];
   const currencies = ['crowns', 'orbs', 'scepters', 'kings'];
   const symbols = { crowns: '👑', orbs: '🔮', scepters: '🏆', kings: '♔' };
-  
+
   for (const currency of currencies) {
     const requested = transfer[`requested${currency.charAt(0).toUpperCase() + currency.slice(1)}`] || 0;
     const available = characterMoney?.[currency] || 0;
@@ -38,7 +38,7 @@ const calculateMissingMoney = (transfer, characterMoney) => {
       });
     }
   }
-  
+
   return missing.length > 0 ? missing : null;
 };
 
@@ -51,7 +51,7 @@ export default function PendingTransfers({ characterId, characterMoney = {}, onT
   // Charger les transferts en attente
   const loadTransfers = async () => {
     if (!characterId) return;
-    
+
     try {
       const data = await apiService.getPendingTransfers(characterId);
       setTransfers(data);
@@ -108,7 +108,7 @@ export default function PendingTransfers({ characterId, characterMoney = {}, onT
       setTransfers(prev => prev.filter(t => t.id !== transferId));
       if (window.notificationSystem) {
         const transfer = transfers.find(t => t.id === transferId);
-        const message = transfer?.isExchange 
+        const message = transfer?.isExchange
           ? 'Échange effectué avec succès !'
           : 'Transfert reçu avec succès !';
         window.notificationSystem.success(message);
@@ -131,7 +131,7 @@ export default function PendingTransfers({ characterId, characterMoney = {}, onT
       setTransfers(prev => prev.filter(t => t.id !== transferId));
       if (window.notificationSystem) {
         const transfer = transfers.find(t => t.id === transferId);
-        const message = transfer?.isExchange 
+        const message = transfer?.isExchange
           ? 'Échange refusé'
           : 'Transfert refusé';
         window.notificationSystem.info(message);
@@ -162,25 +162,24 @@ export default function PendingTransfers({ characterId, characterMoney = {}, onT
         </svg>
         Propositions en attente ({transfers.length})
       </h3>
-      
+
       <div className="space-y-3">
         {transfers.map(transfer => {
           const hasOfferedItem = transfer.itemText;
           const hasOfferedMoney = formatMoney(transfer, 'offered');
           const hasRequestedMoney = formatMoney(transfer, 'requested');
-          
+
           // Calculer le manque d'argent
           const missingMoney = calculateMissingMoney(transfer, characterMoney);
           const cannotAfford = missingMoney !== null;
-          
+
           return (
-            <div 
-              key={transfer.id} 
-              className={`p-4 bg-white/80 rounded-xl border shadow-sm ${
-                transfer.isExchange 
-                  ? 'border-purple-200/50' 
+            <div
+              key={transfer.id}
+              className={`p-4 bg-white/80 rounded-xl border shadow-sm ${transfer.isExchange
+                  ? 'border-purple-200/50'
                   : 'border-blue-200/50'
-              }`}
+                }`}
             >
               {/* Badge type et expéditeur */}
               <div className="flex items-center gap-2 mb-3">
@@ -225,7 +224,7 @@ export default function PendingTransfers({ characterId, characterMoney = {}, onT
                     )}
                   </div>
                 </div>
-                
+
                 {/* Ce que vous donnez en échange (argent demandé) */}
                 {transfer.isExchange && hasRequestedMoney && (
                   <div className="p-2 bg-amber-50 rounded-lg border border-amber-200">
@@ -237,7 +236,7 @@ export default function PendingTransfers({ characterId, characterMoney = {}, onT
                     </div>
                   </div>
                 )}
-                
+
                 {/* Message d'erreur si fonds insuffisants */}
                 {cannotAfford && (
                   <div className="p-2 bg-red-50 rounded-lg border border-red-300">
@@ -253,19 +252,18 @@ export default function PendingTransfers({ characterId, characterMoney = {}, onT
                   </div>
                 )}
               </div>
-              
+
               {/* Actions */}
               <div className="flex gap-2">
                 <button
                   onClick={() => handleAccept(transfer.id)}
                   disabled={processingId === transfer.id || cannotAfford}
-                  className={`flex-1 px-4 py-2 text-white text-sm rounded-lg font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 ${
-                    cannotAfford
+                  className={`flex-1 px-4 py-2 text-white text-sm rounded-lg font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 ${cannotAfford
                       ? 'bg-gray-400 cursor-not-allowed'
                       : transfer.isExchange
                         ? 'bg-purple-600 hover:bg-purple-500'
                         : 'bg-green-600 hover:bg-green-500'
-                  }`}
+                    }`}
                   title={cannotAfford ? 'Vous n\'avez pas assez d\'argent pour cet échange' : ''}
                 >
                   {processingId === transfer.id ? (

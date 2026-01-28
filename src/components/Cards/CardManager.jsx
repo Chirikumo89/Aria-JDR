@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import CardList from './CardList';
 import CardAssignment from './CardAssignment';
 import CardViewer from './CardViewer';
-import { apiService } from '../../services/api';
+import apiService from '../../services/api';
 
 export default function CardManager({ gameId, characters }) {
   const { currentGame } = useGame();

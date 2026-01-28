@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -8,7 +8,7 @@ import { useNotification } from '../context/NotificationContext';
 // Fonction pour regrouper les cagettes par nom (stack)
 function stackCrates(crates) {
   if (!crates || crates.length === 0) return [];
-  
+
   const stacks = {};
   crates.forEach(crate => {
     const name = crate.name.trim().toLowerCase();
@@ -23,7 +23,7 @@ function stackCrates(crates) {
       stacks[name].count++;
     }
   });
-  
+
   return Object.values(stacks).sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -31,32 +31,32 @@ export default function VehicleInventory({ gameId, disabled = false }) {
   const socket = useSocket();
   const { user } = useAuth();
   const { showNotification } = useNotification();
-  
+
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+
   // États pour le formulaire de création (MJ)
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newVehicleName, setNewVehicleName] = useState('');
   const [newVehicleMaxCrates, setNewVehicleMaxCrates] = useState(1);
-  
+
   // États pour la demande de véhicule (Joueur)
   const [showVehicleRequestForm, setShowVehicleRequestForm] = useState(false);
   const [requestVehicleName, setRequestVehicleName] = useState('');
   const [requestVehicleMaxCrates, setRequestVehicleMaxCrates] = useState(1);
   const [requestVehicleReason, setRequestVehicleReason] = useState('');
-  
+
   // État pour l'édition d'un véhicule
   const [editingVehicle, setEditingVehicle] = useState(null);
-  
+
   // État pour le véhicule sélectionné (pour voir/modifier les cagettes)
   const [selectedVehicle, setSelectedVehicle] = useState(null);
-  
+
   // État pour l'ajout de cagette
   const [newCrateName, setNewCrateName] = useState('');
   const [newCrateQuantity, setNewCrateQuantity] = useState(1);
-  
+
   // État pour la demande d'augmentation de capacité
   const [showRequestForm, setShowRequestForm] = useState(null);
   const [requestedSlots, setRequestedSlots] = useState(1);
@@ -71,7 +71,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
       setLoading(true);
       const vehiclesData = await apiService.getVehicles(gameId);
       setVehicles(vehiclesData);
-      
+
       // Mettre à jour le véhicule sélectionné si nécessaire
       if (selectedVehicle) {
         const updated = vehiclesData.find(v => v.id === selectedVehicle.id);
@@ -112,11 +112,11 @@ export default function VehicleInventory({ gameId, disabled = false }) {
 
     const handleVehicleUpdated = (data) => {
       if (data.gameId === gameId && data.vehicle) {
-        setVehicles(prev => prev.map(v => 
+        setVehicles(prev => prev.map(v =>
           v.id === data.vehicle.id ? data.vehicle : v
         ));
         // Mettre à jour le véhicule sélectionné si c'est le même
-        setSelectedVehicle(prev => 
+        setSelectedVehicle(prev =>
           prev?.id === data.vehicle.id ? data.vehicle : prev
         );
       }
@@ -157,9 +157,9 @@ export default function VehicleInventory({ gameId, disabled = false }) {
 
     try {
       setSaving(true);
-      await apiService.createVehicle(gameId, { 
+      await apiService.createVehicle(gameId, {
         name: newVehicleName,
-        maxCrates: newVehicleMaxCrates 
+        maxCrates: newVehicleMaxCrates
       });
       setNewVehicleName('');
       setNewVehicleMaxCrates(1);
@@ -183,17 +183,17 @@ export default function VehicleInventory({ gameId, disabled = false }) {
 
     try {
       setSaving(true);
-      await apiService.createVehicleRequest(gameId, { 
+      await apiService.createVehicleRequest(gameId, {
         vehicleName: requestVehicleName,
         maxCrates: requestVehicleMaxCrates,
         reason: requestVehicleReason.trim() || null
       });
-      
+
       setRequestVehicleName('');
       setRequestVehicleMaxCrates(1);
       setRequestVehicleReason('');
       setShowVehicleRequestForm(false);
-      
+
       if (showNotification) {
         showNotification({
           type: 'success',
@@ -252,7 +252,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
     const currentCratesCount = vehicle.crates?.length || 0;
     const quantity = Math.max(1, newCrateQuantity);
     const availableSlots = vehicle.maxCrates - currentCratesCount;
-    
+
     // Vérifier strictement la limite
     if (availableSlots <= 0) {
       alert(`Limite de ${vehicle.maxCrates} cagette(s) atteinte. ${isMJ ? 'Modifiez le nombre max dans les paramètres du véhicule.' : 'Faites une demande au MJ pour augmenter la capacité.'}`);
@@ -319,11 +319,11 @@ export default function VehicleInventory({ gameId, disabled = false }) {
         requestedSlots: requestedSlots,
         reason: requestReason.trim() || null
       });
-      
+
       setShowRequestForm(null);
       setRequestedSlots(1);
       setRequestReason('');
-      
+
       if (showNotification) {
         showNotification({
           type: 'success',
@@ -524,11 +524,11 @@ export default function VehicleInventory({ gameId, disabled = false }) {
             const availableSlots = vehicle.maxCrates - currentCratesCount;
             const stackedCrates = stackCrates(vehicle.crates);
             const fillPercent = (currentCratesCount / vehicle.maxCrates) * 100;
-            
+
             return (
               <div key={vehicle.id} className="rounded-xl bg-white shadow-md border border-slate-200 overflow-hidden">
                 {/* En-tête du véhicule */}
-                <div 
+                <div
                   className="p-4 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors"
                   onClick={() => setSelectedVehicle(selectedVehicle?.id === vehicle.id ? null : vehicle)}
                 >
@@ -540,7 +540,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                       <h4 className="font-bold" style={{ color: '#1e293b' }}>{vehicle.name}</h4>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
-                          <div 
+                          <div
                             className={`h-full rounded-full transition-all ${isAtLimit ? 'bg-red-500' : 'bg-gradient-to-r from-cyan-400 to-blue-500'}`}
                             style={{ width: `${fillPercent}%` }}
                           />
@@ -557,7 +557,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setEditingVehicle({...vehicle});
+                        setEditingVehicle({ ...vehicle });
                       }}
                       className="p-2 hover:bg-cyan-50 rounded-lg transition-colors"
                       style={{ color: '#94a3b8' }}
@@ -591,7 +591,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                     <h5 className="font-semibold mb-3 flex items-center gap-2" style={{ color: '#334155' }}>
                       <span>📦</span> Cale du véhicule
                     </h5>
-                    
+
                     {/* Liste des cagettes stackées */}
                     {stackedCrates.length === 0 ? (
                       <p className="text-sm italic mb-4 text-center py-4" style={{ color: '#64748b' }}>Aucune cagette dans ce véhicule.</p>
@@ -658,7 +658,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                                 disabled={saving}
                               />
                             </div>
-                            
+
                             {/* Ligne 2: Quantité et bouton Ajouter */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -685,7 +685,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                                 >
                                   −
                                 </button>
-                                <span 
+                                <span
                                   style={{
                                     minWidth: '40px',
                                     height: '36px',
@@ -725,7 +725,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                                   +
                                 </button>
                               </div>
-                              
+
                               <button
                                 onClick={() => handleAddCrates(vehicle.id)}
                                 disabled={saving || !newCrateName.trim()}
@@ -744,7 +744,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                                 Ajouter
                               </button>
                             </div>
-                            
+
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
                               <span className="text-xs" style={{ color: '#64748b' }}>
                                 {availableSlots} slot{availableSlots > 1 ? 's' : ''} disponible{availableSlots > 1 ? 's' : ''}
@@ -768,7 +768,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                               {isMJ && (
                                 <button
                                   type="button"
-                                  onClick={() => setEditingVehicle({...vehicle})}
+                                  onClick={() => setEditingVehicle({ ...vehicle })}
                                   style={{
                                     background: 'none',
                                     border: 'none',
@@ -782,7 +782,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                                 </button>
                               )}
                             </div>
-                            
+
                             {/* Formulaire de demande (si ouvert) */}
                             {showRequestForm === vehicle.id && !isMJ && (
                               <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#fef3c7', borderRadius: '8px', border: '1px solid #fcd34d' }}>
@@ -927,7 +927,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                                 )}
                                 {isMJ && (
                                   <button
-                                    onClick={() => setEditingVehicle({...vehicle})}
+                                    onClick={() => setEditingVehicle({ ...vehicle })}
                                     className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm rounded-lg hover:from-cyan-600 hover:to-blue-600 font-medium shadow-sm transition-all"
                                   >
                                     Modifier la limite
@@ -949,13 +949,13 @@ export default function VehicleInventory({ gameId, disabled = false }) {
 
       {/* Modal d'édition du véhicule - portail vers le body */}
       {editingVehicle && createPortal(
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 flex items-center justify-center"
           style={{ zIndex: 99999 }}
           onClick={() => setEditingVehicle(null)}
         >
-          <div 
-            className="bg-white p-6 rounded-lg shadow-2xl max-w-md w-full mx-4 border border-gray-300" 
+          <div
+            className="bg-white p-6 rounded-lg shadow-2xl max-w-md w-full mx-4 border border-gray-300"
             onClick={(e) => e.stopPropagation()}
           >
             <h4 className="text-lg font-bold mb-4" style={{ color: '#111827' }}>Modifier le véhicule</h4>
@@ -1015,7 +1015,7 @@ export default function VehicleInventory({ gameId, disabled = false }) {
                 disabled={saving}
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               >
-              {saving ? 'Sauvegarde...' : 'Enregistrer'}
+                {saving ? 'Sauvegarde...' : 'Enregistrer'}
               </button>
             </div>
           </div>

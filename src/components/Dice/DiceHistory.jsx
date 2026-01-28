@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSocket } from '../../context/SocketContext';
-import { apiService } from '../../services/api';
+import apiService from '../../services/api';
 
 export default function DiceHistory({ gameId }) {
   const [diceRolls, setDiceRolls] = useState([]);

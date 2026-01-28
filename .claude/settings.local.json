@@ -6,7 +6,11 @@
       "Bash(npx prisma:*)",
       "Bash(npm run dev)",
       "Bash(cat:*)",
-      "Bash(npm run server:*)"
+      "Bash(npm run server:*)",
+      "Bash(npm install:*)",
+      "Bash(sqlite3:*)",
+      "Bash(node:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []

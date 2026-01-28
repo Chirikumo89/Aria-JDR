@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 
 export default function RoleManager() {
   const { user, login } = useAuth();

@@ -1,0 +1,364 @@
+/* TurnManager.css */
+
+.turn-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2416 100%);
+  border-radius: 12px;
+  color: #e8d5c4;
+  font-family: 'Arial', sans-serif;
+}
+
+.turn-manager.no-combat {
+  padding: 40px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px dashed #666;
+}
+
+/* En-tête du combat */
+.combat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: linear-gradient(90deg, #3d3d3d 0%, #2d2416 100%);
+  border-left: 4px solid #c9a961;
+  border-radius: 8px;
+}
+
+.combat-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #c9a961;
+}
+
+.combat-status {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+}
+
+.current-turn {
+  padding: 8px 15px;
+  background: rgba(201, 169, 97, 0.2);
+  border-radius: 6px;
+  border-left: 3px solid #c9a961;
+  color: #f4e4d7;
+}
+
+.current-turn strong {
+  color: #c9a961;
+  font-weight: bold;
+}
+
+/* Ordre d'initiative */
+.initiative-order {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid rgba(201, 169, 97, 0.3);
+}
+
+.initiative-order h3 {
+  margin: 0 0 12px 0;
+  color: #c9a961;
+  font-size: 16px;
+}
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(45, 36, 22, 0.5);
+  border-left: 4px solid #666;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.order-item.character {
+  border-left-color: #4a7c59;
+}
+
+.order-item.enemy {
+  border-left-color: #c92a2a;
+}
+
+.order-item.acted {
+  opacity: 0.6;
+  background: rgba(100, 100, 100, 0.3);
+}
+
+.order-item.current {
+  background: rgba(201, 169, 97, 0.2);
+  border-left-color: #c9a961;
+  box-shadow: 0 0 10px rgba(201, 169, 97, 0.3);
+}
+
+.order-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  background: rgba(201, 169, 97, 0.3);
+  border-radius: 50%;
+  font-weight: bold;
+  color: #c9a961;
+}
+
+.order-item .name {
+  flex: 1;
+  font-weight: 500;
+  color: #f4e4d7;
+}
+
+.order-item .health {
+  font-size: 13px;
+  color: #e74c3c;
+}
+
+.acted-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  background: rgba(76, 175, 80, 0.3);
+  border-radius: 50%;
+  color: #4caf50;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* Actions de combat */
+.combat-actions {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid rgba(201, 169, 97, 0.3);
+}
+
+.combat-actions h3 {
+  margin: 0 0 15px 0;
+  color: #c9a961;
+  font-size: 16px;
+}
+
+.action-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.selector-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selector label {
+  font-weight: 600;
+  color: #c9a961;
+  font-size: 13px;
+}
+
+.selector select {
+  padding: 10px;
+  background: rgba(45, 36, 22, 0.8);
+  border: 1px solid rgba(201, 169, 97, 0.4);
+  border-radius: 6px;
+  color: #f4e4d7;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.selector select:focus {
+  outline: none;
+  border-color: #c9a961;
+  box-shadow: 0 0 8px rgba(201, 169, 97, 0.3);
+}
+
+.selector select option {
+  background: #2d2416;
+  color: #f4e4d7;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-attack,
+.btn-next-turn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.btn-attack {
+  background: linear-gradient(135deg, #c92a2a 0%, #a01e1e 100%);
+  color: white;
+}
+
+.btn-attack:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d63434 0%, #b02828 100%);
+  box-shadow: 0 0 15px rgba(201, 42, 42, 0.4);
+}
+
+.btn-next-turn {
+  background: linear-gradient(135deg, #4a7c59 0%, #366b4b 100%);
+  color: white;
+}
+
+.btn-next-turn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #558866 0%, #3f7554 100%);
+  box-shadow: 0 0 15px rgba(74, 124, 89, 0.4);
+}
+
+.btn-attack:disabled,
+.btn-next-turn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Journal de combat */
+.combat-log {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid rgba(201, 169, 97, 0.3);
+}
+
+.combat-log h3 {
+  margin: 0 0 12px 0;
+  color: #c9a961;
+  font-size: 16px;
+}
+
+.log-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.log-entry {
+  padding: 10px;
+  background: rgba(45, 36, 22, 0.5);
+  border-left: 3px solid #c9a961;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #f4e4d7;
+  line-height: 1.4;
+}
+
+.no-entries {
+  text-align: center;
+  color: #888;
+  padding: 20px;
+  font-style: italic;
+}
+
+/* Info du participant actuel */
+.current-participant-info {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 8px;
+  border: 2px solid rgba(201, 169, 97, 0.5);
+}
+
+.current-participant-info h3 {
+  margin: 0 0 12px 0;
+  color: #c9a961;
+  font-size: 16px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: rgba(45, 36, 22, 0.5);
+  border-radius: 6px;
+  border-left: 3px solid #c9a961;
+}
+
+.info-item .label {
+  font-weight: 600;
+  color: #c9a961;
+  font-size: 12px;
+}
+
+.info-item .value {
+  font-weight: bold;
+  color: #f4e4d7;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .selector-group {
+    grid-template-columns: 1fr;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .combat-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Scroll bar styling */
+.log-entries::-webkit-scrollbar {
+  width: 6px;
+}
+
+.log-entries::-webkit-scrollbar-track {
+  background: rgba(45, 36, 22, 0.3);
+  border-radius: 3px;
+}
+
+.log-entries::-webkit-scrollbar-thumb {
+  background: rgba(201, 169, 97, 0.4);
+  border-radius: 3px;
+}
+
+.log-entries::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 169, 97, 0.6);
+}

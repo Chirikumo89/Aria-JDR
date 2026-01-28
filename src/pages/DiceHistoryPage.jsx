@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 import { useSocket } from '../context/SocketContext';
 
 export default function DiceHistoryPage() {

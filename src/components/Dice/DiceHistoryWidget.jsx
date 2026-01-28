@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useSocket } from '../../context/SocketContext';
-import { apiService } from '../../services/api';
+import apiService from '../../services/api';
 
 // Clé pour sauvegarder la position dans localStorage
 const POSITION_STORAGE_KEY = 'dice-history-widget-position';
